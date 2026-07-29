@@ -36,10 +36,10 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; die neue Version dann beim nächsten Start (oder Shift+U) automatisch
 ; angeboten.
 ; =========================================================================
-global AutoUpdateAktiviert := false
+global AutoUpdateAktiviert := true
 global AktuelleVersion := "4.8"
-global UpdateVersionsUrl := ""   ; z.B. "https://raw.githubusercontent.com/DeinName/DeinRepo/main/version.txt"
-global UpdateDateiUrl := ""      ; z.B. "https://raw.githubusercontent.com/DeinName/DeinRepo/main/GTA_Business_Automation.ahk"
+global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
+global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/refs/heads/main/GTA%20Business%20Automation%20v4.8.ahk"
 
 ; =========================================================================
 ; 🎮 GTA-FENSTER: Skript sendet Tasten NUR, wenn dieses Fenster aktiv ist
@@ -949,14 +949,21 @@ WaehleFlavorText() {
 ; Vergleicht zwei Versionsnummern wie "4.6" vs "4.10" NUMERISCH (nicht als
 ; Text, sonst wäre "4.6" > "4.10"). Gibt true zurück, wenn Neu > Alt.
 IstNeuereVersion(Neu, Alt) {
-    NeuTeile := StrSplit(Neu, ".")
-    AltTeile := StrSplit(Alt, ".")
-    NeuHaupt := Integer(NeuTeile.Length >= 1 ? NeuTeile[1] : 0)
-    AltHaupt := Integer(AltTeile.Length >= 1 ? AltTeile[1] : 0)
+    ; FIX: Jeden Teil vor der Umwandlung auf reine Ziffern reduzieren - so
+    ; können unsichtbare Zeichen (z.B. ein Windows-Zeilenumbruch \r, der in
+    ; der Versions-Datei mitgeliefert wurde) nicht mehr zum Absturz führen.
+    NurZiffern(Text) {
+        Bereinigt := RegExReplace(Text, "[^\d]", "")
+        return (Bereinigt = "") ? 0 : Integer(Bereinigt)
+    }
+    NeuTeile := StrSplit(Trim(Neu, " `t`r`n"), ".")
+    AltTeile := StrSplit(Trim(Alt, " `t`r`n"), ".")
+    NeuHaupt := NurZiffern(NeuTeile.Length >= 1 ? NeuTeile[1] : "0")
+    AltHaupt := NurZiffern(AltTeile.Length >= 1 ? AltTeile[1] : "0")
     if (NeuHaupt != AltHaupt)
         return NeuHaupt > AltHaupt
-    NeuNeben := Integer(NeuTeile.Length >= 2 ? NeuTeile[2] : 0)
-    AltNeben := Integer(AltTeile.Length >= 2 ? AltTeile[2] : 0)
+    NeuNeben := NurZiffern(NeuTeile.Length >= 2 ? NeuTeile[2] : "0")
+    AltNeben := NurZiffern(AltTeile.Length >= 2 ? AltTeile[2] : "0")
     return NeuNeben > AltNeben
 }
 
@@ -985,7 +992,7 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
                 UpdateDashboard(TP("update_fehler", "HTTP " . Http.Status))
             return
         }
-        OnlineVersion := Trim(Http.ResponseText)
+        OnlineVersion := Trim(Http.ResponseText, " `t`r`n")
     } catch as Fehler {
         if ManuellAusgeloest
             UpdateDashboard(TP("update_fehler", Fehler.Message))
