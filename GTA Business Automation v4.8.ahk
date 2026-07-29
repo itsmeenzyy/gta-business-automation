@@ -37,9 +37,9 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "4.8"
+global AktuelleVersion := "4.9"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
-global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/refs/heads/main/GTA%20Business%20Automation%20v4.8.ahk"
+global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
 ; =========================================================================
 ; 🎮 GTA-FENSTER: Skript sendet Tasten NUR, wenn dieses Fenster aktiv ist
@@ -327,7 +327,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v4.8")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v4.9")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -487,6 +487,7 @@ FadeUebergang(0, 255)
 LadeKistenstand()
 
 global DashboardSichtbar := true
+global AutomatisierungBeschaeftigt := false
 
 ; FIX: Direkt einmal aktualisieren (nicht erst beim ersten Shift+P) - sonst
 ; bleiben Karten (z.B. Spezialfracht & Hangar), die erst durch UpdateDashboard()
@@ -502,9 +503,14 @@ ErstAbrufEventBoni() {
     AktualisiereEventBoniAnzeige()
 }
 
-; Auto-Update-Prüfung leicht verzögert (2 Sek.) - nur falls in den Zeilen
-; oben konfiguriert (siehe Kommentar bei AutoUpdateAktiviert).
+; Auto-Update-Prüfung leicht verzögert (2 Sek.) beim Start - nur falls in
+; den Zeilen oben konfiguriert (siehe Kommentar bei AutoUpdateAktiviert).
 SetTimer(() => PrüfeAufUpdate(false), -2000)
+
+; FIX: Zusätzlich alle 30 Minuten WIEDERHOLT prüfen - das Skript läuft ja
+; oft stundenlang durch, ein einmaliger Check beim Start würde ein Update
+; verpassen, das erst später veröffentlicht wird.
+SetTimer(() => PrüfeAufUpdate(false), 1800000)
 
 +p::StartAutomation()
 +o::PauseAutomation()
@@ -968,7 +974,7 @@ IstNeuereVersion(Neu, Alt) {
 }
 
 PrüfeAufUpdate(ManuellAusgeloest := false) {
-    global AutoUpdateAktiviert, AktuelleVersion, UpdateVersionsUrl, UpdateDateiUrl
+    global AutoUpdateAktiviert, AktuelleVersion, UpdateVersionsUrl, UpdateDateiUrl, AutomatisierungBeschaeftigt
 
     if (UpdateVersionsUrl = "" || UpdateDateiUrl = "") {
         if ManuellAusgeloest
@@ -976,6 +982,13 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
         return
     }
     if (!AutoUpdateAktiviert && !ManuellAusgeloest)
+        return
+
+    ; FIX: Die automatische (wiederkehrende) Prüfung überspringt einfach,
+    ; falls gerade eine Runde aktiv läuft (Tasten werden gesendet) - wird
+    ; beim nächsten 30-Min-Intervall erneut versucht. Ein manueller Shift+U
+    ; läuft dagegen immer sofort, das entscheidest du bewusst selbst.
+    if (!ManuellAusgeloest && AutomatisierungBeschaeftigt)
         return
 
     if ManuellAusgeloest
@@ -1775,7 +1788,12 @@ DrückeTaste(Taste) {
 }
 
 AusfuehrenKombi() {
-    global RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, KostenProLagerhaus, KostenHangar, SpielhalleEinnahmen, AgenturEinnahmen, SchrotthandelEinnahmen, TextilfabrikEinnahmen, WaschanlageEinnahmen, MinWarenProRunde, MaxWarenProRunde, MinKautionProRunde, MaxKautionProRunde, ZielZeit, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, NachtclubBeliebtheit, TotalNachtclubEinnahmen, AutomationAktiv, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, GTAFensterTitel, ZielRundenAnzahl, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar
+    global RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, KostenProLagerhaus, KostenHangar, SpielhalleEinnahmen, AgenturEinnahmen, SchrotthandelEinnahmen, TextilfabrikEinnahmen, WaschanlageEinnahmen, MinWarenProRunde, MaxWarenProRunde, MinKautionProRunde, MaxKautionProRunde, ZielZeit, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, NachtclubBeliebtheit, TotalNachtclubEinnahmen, AutomationAktiv, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, GTAFensterTitel, ZielRundenAnzahl, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, AutomatisierungBeschaeftigt
+
+    ; FIX: Solange Tasten aktiv gesendet werden, darf die automatische
+    ; Update-Prüfung NICHT dazwischenfunken (Dialog/Netzwerkaufruf würde die
+    ; laufende Runde stören). Wird am Ende der Runde wieder freigegeben.
+    AutomatisierungBeschaeftigt := true
 
     SetTimer(AntiAFK, 0)
     SetTimer(CountdownTicker, 0)
@@ -1791,6 +1809,7 @@ AusfuehrenKombi() {
         SetTimer(CountdownTicker, 1000)
         SetTimer(AntiAFK, 8000)
         SetTimer(AusfuehrenKombi, -10000)
+        AutomatisierungBeschaeftigt := false
         return
     }
     WinActivate(GTAFensterTitel)
@@ -1799,6 +1818,7 @@ AusfuehrenKombi() {
         SetTimer(CountdownTicker, 1000)
         SetTimer(AntiAFK, 8000)
         SetTimer(AusfuehrenKombi, -10000)
+        AutomatisierungBeschaeftigt := false
         return
     }
 
@@ -1826,6 +1846,7 @@ AusfuehrenKombi() {
             UpdateDashboard(T("automatisierung_pausiert_runde_abgebrochen"))
             if (VorherigesFenster != "" && WinExist(VorherigesFenster))
                 WinActivate(VorherigesFenster)
+            AutomatisierungBeschaeftigt := false
             return
         }
 
@@ -1898,6 +1919,7 @@ AusfuehrenKombi() {
         UpdateDashboard(T("automatisierung_pausiert"))
         if (VorherigesFenster != "" && WinExist(VorherigesFenster))
             WinActivate(VorherigesFenster)
+        AutomatisierungBeschaeftigt := false
         return
     }
 
@@ -1954,6 +1976,7 @@ AusfuehrenKombi() {
         if (VorherigesFenster != "" && WinExist(VorherigesFenster))
             WinActivate(VorherigesFenster)
         Run("shutdown /s /t 60")
+        AutomatisierungBeschaeftigt := false
         return
     }
 
@@ -1971,6 +1994,10 @@ AusfuehrenKombi() {
     ; automatisch in den Vordergrund geholt hat.
     if (VorherigesFenster != "" && WinExist(VorherigesFenster))
         WinActivate(VorherigesFenster)
+
+    ; Ab hier ist die Runde fertig - die AFK-Wartezeit beginnt, in der eine
+    ; Update-Prüfung wieder unbedenklich ist.
+    AutomatisierungBeschaeftigt := false
 }
 
 UpdateDashboard(StatusText) {
