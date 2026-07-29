@@ -982,9 +982,13 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
         UpdateDashboard(T("update_suche_status"))
 
     try {
+        ; FIX: Cache-Buster (?t=Zufallszahl) anhängen - raw.githubusercontent.com
+        ; cached Inhalte sonst teils mehrere Minuten, auch nach einer Änderung.
+        CacheBuster := "?t=" . A_TickCount . Random(1000, 9999)
         Http := ComObject("WinHttp.WinHttpRequest.5.1")
-        Http.Open("GET", UpdateVersionsUrl, false)
+        Http.Open("GET", UpdateVersionsUrl . CacheBuster, false)
         Http.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+        Http.SetRequestHeader("Cache-Control", "no-cache")
         Http.SetTimeouts(5000, 5000, 8000, 8000)
         Http.Send()
         if (Http.Status != 200) {
@@ -1012,8 +1016,9 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
     UpdateDashboard(T("update_wird_installiert"))
     try {
         HttpDatei := ComObject("WinHttp.WinHttpRequest.5.1")
-        HttpDatei.Open("GET", UpdateDateiUrl, false)
+        HttpDatei.Open("GET", UpdateDateiUrl . CacheBuster, false)
         HttpDatei.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+        HttpDatei.SetRequestHeader("Cache-Control", "no-cache")
         HttpDatei.SetTimeouts(5000, 5000, 15000, 15000)
         HttpDatei.Send()
         if (HttpDatei.Status != 200) {
