@@ -37,7 +37,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "4.9"
+global AktuelleVersion := "5.2"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -327,7 +327,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v4.9")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.2")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -488,6 +488,7 @@ LadeKistenstand()
 
 global DashboardSichtbar := true
 global AutomatisierungBeschaeftigt := false
+global UpdateVerfuegbarVersion := ""
 
 ; FIX: Direkt einmal aktualisieren (nicht erst beim ersten Shift+P) - sonst
 ; bleiben Karten (z.B. Spezialfracht & Hangar), die erst durch UpdateDashboard()
@@ -806,7 +807,7 @@ T(Key) {
         "autoshutdown_titel", Map("DE", "⏻ Auto-Shutdown (optional)", "EN", "⏻ Auto-Shutdown (optional)"),
         "autoshutdown_frage", Map("DE", "Nach wie vielen Runden soll der PC automatisch heruntergefahren werden?`n(0 oder leer = nie automatisch herunterfahren)", "EN", "After how many rounds should the PC shut down automatically?`n(0 or empty = never shut down automatically)"),
         "autoshutdown_deaktiviert_live", Map("DE", "= Auto-Shutdown deaktiviert", "EN", "= Auto-shutdown disabled"),
-        "autoshutdown_voraussichtlich", Map("DE", "= voraussichtl. {1}Std {2}Min Gesamt-AFK-Zeit", "EN", "= estimated {1}h {2}m total AFK time"),
+        "autoshutdown_voraussichtlich", Map("DE", "= voraussichtl. {1}Std {2}Min Gesamt-AFK-Zeit   →   Shutdown ca. um {3} Uhr", "EN", "= estimated {1}h {2}m total AFK time   →   Shutdown at approx. {3}"),
         "werte_bestaetigen_titel", Map("DE", "Werte bestätigen", "EN", "Confirm values"),
         "werte_bestaetigen_intro", Map("DE", "Bitte prüfen, bevor die Automatisierung startet:", "EN", "Please check before the automation starts:"),
         "farbauswahl_titel", Map("DE", "🎨 Akzentfarbe wählen", "EN", "🎨 Choose accent color"),
@@ -821,6 +822,7 @@ T(Key) {
         "update_gefunden_titel", Map("DE", "Update verfügbar", "EN", "Update available"),
         "update_gefunden_frage", Map("DE", "Version {1} ist verfügbar (du hast {2}).`n`nJetzt herunterladen und installieren? Das Skript startet danach automatisch neu.", "EN", "Version {1} is available (you have {2}).`n`nDownload and install now? The script will restart automatically afterwards."),
         "update_wird_installiert", Map("DE", "Update wird installiert, Skript startet neu...", "EN", "Installing update, script is restarting..."),
+        "update_hinweis_kurz", Map("DE", "   |   🔄 Update {1} verfügbar! Shift+U zum Installieren", "EN", "   |   🔄 Update {1} available! Shift+U to install"),
         "update_fehler", Map("DE", "Update-Prüfung fehlgeschlagen: {1}", "EN", "Update check failed: {1}"),
         "update_aktuell", Map("DE", "Du hast bereits die neueste Version ({1}).", "EN", "You already have the latest version ({1})."),
         "update_nicht_konfiguriert", Map("DE", "Auto-Update ist nicht eingerichtet (siehe Kommentar am Skriptanfang).", "EN", "Auto-update isn't set up yet (see comment at the top of the script)."),
@@ -954,6 +956,29 @@ WaehleFlavorText() {
 
 ; Vergleicht zwei Versionsnummern wie "4.6" vs "4.10" NUMERISCH (nicht als
 ; Text, sonst wäre "4.6" > "4.10"). Gibt true zurück, wenn Neu > Alt.
+; Zeigt (oder entfernt) den dezenten Update-Hinweis in der Steuerungszeile,
+; ohne das restliche Layout zu verschieben. Blinkt rot, solange ein Update
+; verfügbar ist - hört von selbst auf, sobald der Hinweis wieder leer ist.
+AktualisiereUpdateHinweis() {
+    global SteuerungCtrl, UpdateVerfuegbarVersion
+    SteuerungCtrl.Value := T("dash_steuerung") . (UpdateVerfuegbarVersion != "" ? TP("update_hinweis_kurz", UpdateVerfuegbarVersion) : "")
+    if (UpdateVerfuegbarVersion != "")
+        SetTimer(UpdateBlinkTicker, 500)
+    else {
+        SetTimer(UpdateBlinkTicker, 0)
+        SteuerungCtrl.SetFont("cAAAAAA")
+    }
+}
+
+; Wechselt die Farbe der Steuerungszeile im Sekundentakt zwischen Rot und
+; normalem Grau, solange UpdateBlinkAn läuft (siehe AktualisiereUpdateHinweis).
+UpdateBlinkTicker() {
+    global SteuerungCtrl
+    static Rot := false
+    Rot := !Rot
+    SteuerungCtrl.SetFont(Rot ? "cFF3333" : "cAAAAAA")
+}
+
 IstNeuereVersion(Neu, Alt) {
     ; FIX: Jeden Teil vor der Umwandlung auf reine Ziffern reduzieren - so
     ; können unsichtbare Zeichen (z.B. ein Windows-Zeilenumbruch \r, der in
@@ -974,7 +999,7 @@ IstNeuereVersion(Neu, Alt) {
 }
 
 PrüfeAufUpdate(ManuellAusgeloest := false) {
-    global AutoUpdateAktiviert, AktuelleVersion, UpdateVersionsUrl, UpdateDateiUrl, AutomatisierungBeschaeftigt
+    global AutoUpdateAktiviert, AktuelleVersion, UpdateVersionsUrl, UpdateDateiUrl, AutomatisierungBeschaeftigt, UpdateVerfuegbarVersion
 
     if (UpdateVersionsUrl = "" || UpdateDateiUrl = "") {
         if ManuellAusgeloest
@@ -1017,8 +1042,23 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
     }
 
     if !IstNeuereVersion(OnlineVersion, AktuelleVersion) {
+        if (UpdateVerfuegbarVersion != "") {
+            UpdateVerfuegbarVersion := ""
+            AktualisiereUpdateHinweis()
+        }
         if ManuellAusgeloest
             UpdateDashboard(TP("update_aktuell", AktuelleVersion))
+        return
+    }
+
+    ; FIX: Die automatische (wiederkehrende) Prüfung fragt NIE aktiv nach -
+    ; das wäre ein blockierender Dialog mitten in der AFK-Wartezeit, wo
+    ; niemand am PC sitzt, um zu bestätigen. Stattdessen nur ein stiller
+    ; Hinweis im Dashboard; erst ein bewusstes Shift+U (= du bist am PC)
+    ; zeigt den Bestätigungsdialog.
+    if !ManuellAusgeloest {
+        UpdateVerfuegbarVersion := OnlineVersion
+        AktualisiereUpdateHinweis()
         return
     }
 
@@ -1301,7 +1341,7 @@ ZeigeRundenEingabe() {
     EF := RDlg.Add("Edit", "w440 h32 cFFFFFF Background2A2A2A -E0x200 y+10", "0")
 
     RDlg.SetFont("s11 Bold", "Consolas")
-    ZeitAnzeige := RDlg.Add("Text", "c00FF88 w440 r1 y+8", T("autoshutdown_deaktiviert_live"))
+    ZeitAnzeige := RDlg.Add("Text", "c00FF88 w440 r2 y+8", T("autoshutdown_deaktiviert_live"))
 
     RDlg.SetFont("s11 Bold", "Consolas")
     BtnOK := RDlg.Add("Button", "w210 h42 Default y+16", T("btn_ok"))
@@ -1312,7 +1352,8 @@ ZeigeRundenEingabe() {
         Runden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
         VorausStunden := Floor(Runden * 0.8)
         VorausMinuten := Round(Mod(Runden * 0.8, 1) * 60)
-        ZeitAnzeige.Value := (Runden > 0) ? StrReplace(StrReplace(T("autoshutdown_voraussichtlich"), "{1}", VorausStunden), "{2}", VorausMinuten) : T("autoshutdown_deaktiviert_live")
+        ShutdownUhrzeit := FormatTime(DateAdd(A_Now, Runden * 48, "Minutes"), "HH:mm")
+        ZeitAnzeige.Value := (Runden > 0) ? TPn("autoshutdown_voraussichtlich", VorausStunden, VorausMinuten, ShutdownUhrzeit) : T("autoshutdown_deaktiviert_live")
     }
     EF.OnEvent("Change", Umrechnen)
 
