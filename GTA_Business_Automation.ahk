@@ -30,6 +30,11 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ;      -> unten bei UpdateDateiUrl bzw. UpdateVersionsUrl eintragen.
 ;   6. AutoUpdateAktiviert auf true setzen.
 ;
+; WICHTIG: Liegt die .ahk-Datei in einem geschützten Ordner (z.B. "Program
+; Files"), kann das Update trotzdem mit "Zugriff verweigert" fehlschlagen -
+; dort braucht JEDE Datei-Änderung Admin-Rechte. Lege die Datei stattdessen
+; z.B. auf den Desktop oder in "Dokumente".
+;
 ; Bei jeder neuen Version: beide Dateien im Repo aktualisieren (Weboberfläche:
 ; Datei öffnen -> Stift-Symbol "Edit" -> Inhalt ersetzen -> "Commit changes").
 ; Die URLs bleiben dabei gleich, nur der Inhalt ändert sich. Nutzer bekommen
@@ -37,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "5.2"
+global AktuelleVersion := "5.4"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -327,7 +332,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.2")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.4")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -1084,18 +1089,41 @@ PrüfeAufUpdate(ManuellAusgeloest := false) {
         return
     }
 
-    ; Aktuelle .ahk-Datei durch die neue ersetzen, dann neu starten.
+    ; FIX: Die Datei NICHT direkt überschreiben, während das Skript noch
+    ; läuft - Windows/Antivirus-Programme sperren die gerade ausgeführte
+    ; .ahk-Datei dabei oft ("Zugriff verweigert"). Stattdessen: neuen Inhalt
+    ; in eine Temp-Datei schreiben, ein kleines Batch-Skript erzeugen, das
+    ; ERST NACH dem vollständigen Beenden dieses Skripts die eigentliche
+    ; Datei ersetzt und neu startet, und dieses Skript sofort beenden.
     ZielPfad := A_ScriptFullPath
+    TempPfad := A_ScriptDir . "\_gta_update_temp.ahk"
+    BatchPfad := A_ScriptDir . "\_gta_update_installer.bat"
     try {
-        DateiObj := FileOpen(ZielPfad, "w", "UTF-8")
-        DateiObj.Write(NeuerInhalt)
-        DateiObj.Close()
+        TempDatei := FileOpen(TempPfad, "w", "UTF-8")
+        TempDatei.Write(NeuerInhalt)
+        TempDatei.Close()
     } catch as Fehler {
         UpdateDashboard(TP("update_fehler", Fehler.Message))
         return
     }
-    Sleep(300)
-    Reload()
+
+    try {
+        BatchInhalt := "@echo off`r`n"
+        BatchInhalt .= "timeout /t 2 /nobreak >nul`r`n"
+        BatchInhalt .= "move /y " . Chr(34) . TempPfad . Chr(34) . " " . Chr(34) . ZielPfad . Chr(34) . "`r`n"
+        BatchInhalt .= "start " . Chr(34) . Chr(34) . " " . Chr(34) . A_AhkPath . Chr(34) . " " . Chr(34) . ZielPfad . Chr(34) . "`r`n"
+        BatchInhalt .= "del " . Chr(34) . "%~f0" . Chr(34) . "`r`n"
+        BatchDatei := FileOpen(BatchPfad, "w", "UTF-8")
+        BatchDatei.Write(BatchInhalt)
+        BatchDatei.Close()
+    } catch as Fehler {
+        UpdateDashboard(TP("update_fehler", Fehler.Message))
+        return
+    }
+
+    Run('"' . BatchPfad . '"', , "Hide")
+    Sleep(200)
+    ExitApp()
 }
 
 AbrufeEventBoni() {
@@ -2517,6 +2545,6 @@ AntiAFK() {
     if !WinActive(GTAFensterTitel)
         return
     DrückeMenüTaste("Up")        ; Handy öffnen
-    Sleep(500)
+    Sleep(1500)                  ; FIX: mehr Zeit, damit GTA die Aktion sicher als Aktivität zählt
     DrückeTaste("Backspace")     ; Handy wieder schließen
 }
