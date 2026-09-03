@@ -42,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeKomplettSetup() g
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "6.1"
+global AktuelleVersion := "6.2"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -450,7 +450,7 @@ ZeigeKomplettSetup()
 ; WS_EX_LAYERED (0x80000) wird das Fenster wirklich komplett klickdurchlässig,
 ; auch beim reinen Drüberstreichen mit der Maus (kein Hover-Abfangen mehr).
 global InfoGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x80020")
-InfoGui.BackColor := "111111"
+InfoGui.BackColor := "0A0A0F"
 InfoGui.MarginX := 12
 InfoGui.MarginY := 8
 
@@ -466,7 +466,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v6.1")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v6.2")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -510,66 +510,72 @@ CursorY += 10
 ; 💰 KARTE: GESAMTGEWINN
 ; =========================================================================
 global GewinnBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h58", T("karte_gewinn"))
+global GewinnStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h56 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s16 Bold", "Consolas")
 global ProfitGrossCtrl := InfoGui.Add("Text", "c00FF88 x" . (KartenX + 15) . " y" . (CursorY + 18) . " w870", "$0 – $0")
 InfoGui.SetFont("s9 Norm", "Consolas")
 global ProfitDetailCtrl := InfoGui.Add("Text", "cCCCCCC x" . (KartenX + 15) . " y" . (CursorY + 40) . " w870 r1", T("gewinn_std_wird_berechnet"))
-CursorY += 58 + 5
+CursorY += 58 + 8
 
 ; =========================================================================
 ; 📡 KARTE: STATUS + COUNTDOWN
 ; =========================================================================
-global StatusBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h78", T("karte_status"))
+global StatusBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h90", T("karte_status"))
+global StatusStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h88 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s10 Bold", "Consolas")
-global StatusCtrl := InfoGui.Add("Text", "cFFAA00 x" . (KartenX + 15) . " y" . (CursorY + 16) . " w870", T("bereit"))
-global CountdownBarCtrl := InfoGui.Add("Progress", "x" . (KartenX + 15) . " y" . (CursorY + 35) . " w870 h12 c00FF00 Background333333", 0)
+global StatusCtrl := InfoGui.Add("Text", "cFFAA00 x" . (KartenX + 15) . " y" . (CursorY + 16) . " w870 r2", T("bereit"))
+global CountdownBarCtrl := InfoGui.Add("Progress", "x" . (KartenX + 15) . " y" . (CursorY + 47) . " w870 h12 c00FF00 Background333333", 0)
 InfoGui.SetFont("s8 Norm", "Consolas")
-global CountdownTextCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 49) . " w870", "")
-global ShutdownInfoCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 63) . " w870", T("auto_shutdown_deaktiviert"))
-CursorY += 78 + 5
+global CountdownTextCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 61) . " w870", "")
+global ShutdownInfoCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 75) . " w870", T("auto_shutdown_deaktiviert"))
+CursorY += 90 + 8
 
 ; =========================================================================
 ; 📊 KARTE: FINANZEN
 ; =========================================================================
 global FinanzenBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h96", T("karte_finanzen"))
+global FinanzenStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h94 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s9 Norm", "Consolas")
 global RundeCtrl := InfoGui.Add("Text", "cDDDDDD x" . (KartenX + 15) . " y" . (CursorY + 18) . " w870", T("runde_label") . ": 0")
 global AfkZeitCtrl := InfoGui.Add("Text", "cDDDDDD x" . (KartenX + 15) . " y" . (CursorY + 33) . " w870", T("gesamte_afk_zeit_label") . ": 0:00:00 " . T("std_kurz"))
 global KostenCtrl := InfoGui.Add("Text", "cFF7777 x" . (KartenX + 15) . " y" . (CursorY + 48) . " w870", T("mitarbeiter_kosten_label") . ": $0")
 global EinnahmenCtrl := InfoGui.Add("Text", "c77FF77 x" . (KartenX + 15) . " y" . (CursorY + 63) . " w870", T("bar_geld_label") . ": $0")
 global WarenwertCtrl := InfoGui.Add("Text", "c77FF77 x" . (KartenX + 15) . " y" . (CursorY + 78) . " w870", "")
-CursorY += 96 + 5
+CursorY += 96 + 8
 
 ; =========================================================================
 ; 🎵 KARTE: NACHTCLUB-BELIEBTHEIT (nur sichtbar falls besessen)
 ; =========================================================================
 global NachtclubBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h44", T("karte_nachtclub"))
+global NachtclubStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h42 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s9 Bold", "Consolas")
 global NCBarCtrl := InfoGui.Add("Progress", "x" . (KartenX + 15) . " y" . (CursorY + 17) . " w770 h16 c00FF00 Background333333", 0)
 global NCPercentCtrl := InfoGui.Add("Text", "cDDDDDD x" . (KartenX + 793) . " y" . (CursorY + 18) . " w90", "0%")
-CursorY += 44 + 5
+CursorY += 44 + 8
 
 ; =========================================================================
 ; 🎚️ KARTE: NACHTCLUB-WARENLAGER (Techniker, läuft in Echtzeit - nur
 ; sichtbar falls aktiviert). Schätzung, keine exakten Ingame-Werte.
 ; =========================================================================
 global WarenlagerBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h58", T("karte_warenlager"))
+global WarenlagerStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h56 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s9 Bold", "Consolas")
 global WarenlagerBarCtrl := InfoGui.Add("Progress", "x" . (KartenX + 15) . " y" . (CursorY + 17) . " w770 h16 c" . AkzentFarbe . " Background333333", 0)
 global WarenlagerPercentCtrl := InfoGui.Add("Text", "cDDDDDD x" . (KartenX + 793) . " y" . (CursorY + 18) . " w90", "0%")
 InfoGui.SetFont("s9 Norm", "Consolas")
 global WarenlagerInfoCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 38) . " w870", T("warenlager_hinweis"))
-CursorY += 58 + 5
+CursorY += 58 + 8
 
 ; =========================================================================
 ; 📢 KARTE: EVENT-BONI DIESE WOCHE (experimentell, Best-Effort-Abruf)
 ; =========================================================================
 global EventBoniBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h74", T("karte_eventboni"))
+global EventBoniStreifen := InfoGui.Add("Progress", "x" . KartenX . " y" . (CursorY + 1) . " w4 h72 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InfoGui.SetFont("s9 Norm", "Consolas")
 global EventBoniTextCtrl := InfoGui.Add("Text", "cDDDDDD x" . (KartenX + 15) . " y" . (CursorY + 17) . " w870 r3", T("eventboni_laedt"))
 InfoGui.SetFont("s8 Norm", "Consolas")
 global EventBoniStatusCtrl := InfoGui.Add("Text", "cAAAAAA x" . (KartenX + 15) . " y" . (CursorY + 56) . " w870", "")
-CursorY += 74 + 5
+CursorY += 74 + 8
 
 ; =========================================================================
 ; 📦 KARTE: SPEZIALFRACHT & HANGAR (nur besessene Zeilen sichtbar, dynamisch gepackt)
@@ -577,6 +583,7 @@ CursorY += 74 + 5
 global LagerBoxX := KartenX
 global LagerBoxY := CursorY
 global LagerBox := InfoGui.Add("GroupBox", "c" . AkzentFarbe . " x" . LagerBoxX . " y" . LagerBoxY . " w" . KartenBreite . " h195", T("karte_lager"))
+global LagerStreifen := InfoGui.Add("Progress", "x" . LagerBoxX . " y" . (LagerBoxY + 1) . " w4 h193 c" . AkzentFarbe . " Background" . AkzentFarbe, 100)
 InnenX := LagerBoxX + 15
 BarX := LagerBoxX + 150
 WertX := LagerBoxX + 510
@@ -696,13 +703,13 @@ BestaetigungsBlitz() {
 
 DashboardUmschalten() {
     global DashboardSichtbar, InfoGui, TitelCtrl, BrandingCtrl, WarnhinweisCtrl, SteuerungCtrl
-    global GewinnBox, ProfitGrossCtrl, ProfitDetailCtrl
-    global StatusBox, StatusCtrl, CountdownBarCtrl, CountdownTextCtrl, ShutdownInfoCtrl
-    global FinanzenBox, RundeCtrl, AfkZeitCtrl, KostenCtrl, EinnahmenCtrl, WarenwertCtrl
-    global NachtclubBox, NCBarCtrl, NCPercentCtrl
-    global WarenlagerBox, WarenlagerBarCtrl, WarenlagerPercentCtrl, WarenlagerInfoCtrl
-    global LagerBox, Lager1Label, Lager1Bar, Lager1Wert, Lager2Label, Lager2Bar, Lager2Wert, Lager3Label, Lager3Bar, Lager3Wert, Lager4Label, Lager4Bar, Lager4Wert, Lager5Label, Lager5Bar, Lager5Wert, HangarLabel, HangarBar, HangarWertCtrl, GesamtwarenwertCtrl
-    global EventBoniBox, EventBoniTextCtrl, EventBoniStatusCtrl
+    global GewinnBox, GewinnStreifen, ProfitGrossCtrl, ProfitDetailCtrl
+    global StatusBox, StatusStreifen, StatusCtrl, CountdownBarCtrl, CountdownTextCtrl, ShutdownInfoCtrl
+    global FinanzenBox, FinanzenStreifen, RundeCtrl, AfkZeitCtrl, KostenCtrl, EinnahmenCtrl, WarenwertCtrl
+    global NachtclubBox, NachtclubStreifen, NCBarCtrl, NCPercentCtrl
+    global WarenlagerBox, WarenlagerStreifen, WarenlagerBarCtrl, WarenlagerPercentCtrl, WarenlagerInfoCtrl
+    global LagerBox, LagerStreifen, Lager1Label, Lager1Bar, Lager1Wert, Lager2Label, Lager2Bar, Lager2Wert, Lager3Label, Lager3Bar, Lager3Wert, Lager4Label, Lager4Bar, Lager4Wert, Lager5Label, Lager5Bar, Lager5Wert, HangarLabel, HangarBar, HangarWertCtrl, GesamtwarenwertCtrl
+    global EventBoniBox, EventBoniStreifen, EventBoniTextCtrl, EventBoniStatusCtrl
     ; FIX: Ursprungsposition von AFK-Zeit/Shutdown-Info EINMALIG merken
     ; (static - bleibt über mehrere Aufrufe hinweg erhalten), damit sie beim
     ; Wieder-Einblenden exakt an ihren normalen Platz zurückkehren.
@@ -726,18 +733,22 @@ DashboardUmschalten() {
         TitelCtrl.Visible := true
         WarnhinweisCtrl.Visible := true
         GewinnBox.Visible := true
+        GewinnStreifen.Visible := true
         ProfitGrossCtrl.Visible := true
         ProfitDetailCtrl.Visible := true
         StatusBox.Visible := true
+        StatusStreifen.Visible := true
         StatusCtrl.Visible := true
         CountdownBarCtrl.Visible := true
         CountdownTextCtrl.Visible := true
         FinanzenBox.Visible := true
+        FinanzenStreifen.Visible := true
         RundeCtrl.Visible := true
         KostenCtrl.Visible := true
         EinnahmenCtrl.Visible := true
         WarenwertCtrl.Visible := true
         EventBoniBox.Visible := true
+        EventBoniStreifen.Visible := true
         EventBoniTextCtrl.Visible := true
         EventBoniStatusCtrl.Visible := true
         AfkZeitCtrl.Move(AfkZeitOrigX, AfkZeitOrigY)
@@ -750,28 +761,35 @@ DashboardUmschalten() {
     TitelCtrl.Visible := false
     WarnhinweisCtrl.Visible := false
     GewinnBox.Visible := false
+    GewinnStreifen.Visible := false
     ProfitGrossCtrl.Visible := false
     ProfitDetailCtrl.Visible := false
     StatusBox.Visible := false
+    StatusStreifen.Visible := false
     StatusCtrl.Visible := false
     CountdownBarCtrl.Visible := false
     CountdownTextCtrl.Visible := false
     FinanzenBox.Visible := false
+    FinanzenStreifen.Visible := false
     RundeCtrl.Visible := false
     KostenCtrl.Visible := false
     EinnahmenCtrl.Visible := false
     WarenwertCtrl.Visible := false
     EventBoniBox.Visible := false
+    EventBoniStreifen.Visible := false
     EventBoniTextCtrl.Visible := false
     EventBoniStatusCtrl.Visible := false
     NachtclubBox.Visible := false
+    NachtclubStreifen.Visible := false
     NCBarCtrl.Visible := false
     NCPercentCtrl.Visible := false
     WarenlagerBox.Visible := false
+    WarenlagerStreifen.Visible := false
     WarenlagerBarCtrl.Visible := false
     WarenlagerPercentCtrl.Visible := false
     WarenlagerInfoCtrl.Visible := false
     LagerBox.Visible := false
+    LagerStreifen.Visible := false
     Lager1Label.Visible := false, Lager1Bar.Visible := false, Lager1Wert.Visible := false
     Lager2Label.Visible := false, Lager2Bar.Visible := false, Lager2Wert.Visible := false
     Lager3Label.Visible := false, Lager3Bar.Visible := false, Lager3Wert.Visible := false
@@ -1101,7 +1119,7 @@ T(Key) {
         "startmodus_frage", Map("DE", "Sofort mit dem Einkauf starten, oder erst die Wartezeit abwarten (z.B. weil gerade erst frisch eingekauft wurde)?", "EN", "Start with a purchase immediately, or wait out the cooldown first (e.g. because you just bought)?"),
         "startmodus_sofort", Map("DE", "⚡ Sofort starten", "EN", "⚡ Start immediately"),
         "startmodus_cooldown", Map("DE", "⏳ Erst warten", "EN", "⏳ Wait first"),
-        "warenbestand_ueberspringen_checkbox", Map("DE", "☐ Genauen Warenbestand nicht eingeben (nur schätzen lassen)", "EN", "☐ Don't enter exact cargo stock (estimate only)"),
+        "warenbestand_ueberspringen_checkbox", Map("DE", "Genauen Warenbestand nicht eingeben (nur schätzen lassen)", "EN", "Don't enter exact cargo stock (estimate only)"),
         "btn_jetzt_starten", Map("DE", "🚀  Jetzt starten", "EN", "🚀  Start now"),
         "autoshutdown_titel", Map("DE", "⏻ Auto-Shutdown (optional)", "EN", "⏻ Auto-Shutdown (optional)"),
         "autoshutdown_frage", Map("DE", "Nach wie vielen Runden soll der PC automatisch heruntergefahren werden?`n(0 oder leer = nie automatisch herunterfahren)", "EN", "After how many rounds should the PC shut down automatically?`n(0 or empty = never shut down automatically)"),
@@ -1121,8 +1139,8 @@ T(Key) {
         "update_hinweis_kurz", Map("DE", "   |   🔄 Update {1} verfügbar! Shift+U zum Installieren", "EN", "   |   🔄 Update {1} available! Shift+U to install"),
         "sonderfracht_hinweis_kurz", Map("DE", "   |   ⚡ 2x-Speed AN (alle 24 Min.)", "EN", "   |   ⚡ 2x-Speed ON (every 24 min.)"),
         "sonderfracht_schnell_laeuft", Map("DE", "⚡ 2x-SPEED: Sonderfracht wird abgeholt...", "EN", "⚡ 2x SPEED: Collecting special cargo..."),
-        "sonderfracht_schnell_aktiviert", Map("DE", "⚡ 2x-Speed AKTIVIERT - Sonderfracht wird jetzt alle 24 Min. abgeholt (normale Runde läuft weiterhin alle 48 Min.)", "EN", "⚡ 2x-Speed ENABLED - special cargo now collected every 24 min. (normal round still runs every 48 min.)"),
-        "sonderfracht_schnell_deaktiviert", Map("DE", "2x-Speed deaktiviert - zurück zum normalen 48-Min-Rhythmus", "EN", "2x-Speed disabled - back to the normal 48 min. rhythm"),
+        "sonderfracht_schnell_aktiviert", Map("DE", "⚡ 2x-Speed AN: Sonderfracht jetzt alle 24 Min.", "EN", "⚡ 2x-Speed ON: cargo now every 24 min."),
+        "sonderfracht_schnell_deaktiviert", Map("DE", "2x-Speed AUS - zurück zu 48 Min.", "EN", "2x-Speed OFF - back to 48 min."),
         "sonderfracht_schnell_kein_lager", Map("DE", "Kein Sonderfracht-Lagerhaus besessen - 2x-Speed nicht nötig", "EN", "No special cargo warehouse owned - 2x speed not needed"),
         "update_fehler", Map("DE", "Update-Prüfung fehlgeschlagen: {1}", "EN", "Update check failed: {1}"),
         "update_aktuell", Map("DE", "Du hast bereits die neueste Version ({1}).", "EN", "You already have the latest version ({1})."),
@@ -1681,18 +1699,20 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
     SDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r2", T("spielstand_subtitel"))
     CY += 36
 
-    ; FIX: Checkbox statt separatem Ja/Nein-Fenster davor - beim Anhaken
-    ; werden die Kisten-Felder unten einfach ausgeblendet/ignoriert.
-    CBUeberspringen := ""
+    ; FIX: Eigenes farbiges Häkchen-Feld statt nativer Windows-Checkbox
+    ; (bessere Lesbarkeit + moderne Optik, volle Farbkontrolle).
+    CBChecked := false
+    CBIndikator := "", CBLabel := ""
     if HatLager {
+        CBIndikator := SDlg.Add("Text", "+0x100 x" . InhaltX . " y" . CY . " w22 h22 Background2A2A2A cFFFFFF Center", "")
         SDlg.SetFont("s10 Norm", "Consolas")
-        CBUeberspringen := SDlg.Add("Checkbox", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("warenbestand_ueberspringen_checkbox"))
-        CY += 32
+        CBLabel := SDlg.Add("Text", "+0x100 cCCCCCC x" . (InhaltX + 32) . " y" . (CY + 3) . " w" . (InhaltBreite - 32) . " h20", T("warenbestand_ueberspringen_checkbox"))
+        CY += 34
     }
 
     ReihenHoehe := 38
     Felder := Map()
-    FelderLabels := []
+    FelderLabels := Map()
 
     ZeileHinzufuegen(SchluesselIntern, AnzeigeLabel, AktuellerWert) {
         Lbl := SDlg.Add("Text", "cDDDDDD x" . InhaltX . " y" . (CY + 6) . " w220", AnzeigeLabel . ":")
@@ -1700,7 +1720,7 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
         EF := SDlg.Add("Edit", "x" . (InhaltX + 225) . " y" . CY . " w" . (InhaltBreite - 225) . " h30 cFFFFFF Background2A2A2A -E0x200", AktuellerWert)
         SDlg.SetFont("s10 Bold", "Consolas")
         Felder[SchluesselIntern] := EF
-        FelderLabels.Push(Lbl)
+        FelderLabels[SchluesselIntern] := Lbl
         CY += ReihenHoehe
     }
 
@@ -1721,26 +1741,31 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
     if BesitztNachtclub
         ZeileHinzufuegen("Beliebtheit", T("beliebtheit_feld"), NachtclubBeliebtheit)
 
-    ; Kisten-Felder beim Anhaken der Checkbox aus-/wieder einblenden
-    if (CBUeberspringen != "") {
+    ; FIX: Beim Anhaken müssen Feld UND Label zusammen ausgeblendet werden.
+    ; Beliebtheit bleibt immer sichtbar, ist ja nicht Teil vom Warenbestand.
+    if (CBIndikator != "") {
         UeberspringenToggle(*) {
-            Sichtbar := !CBUeberspringen.Value
+            CBChecked := !CBChecked
+            CBIndikator.Text := CBChecked ? "✓" : ""
+            CBIndikator.Opt("Background" . (CBChecked ? AkzentFarbe : "2A2A2A"))
+            Sichtbar := !CBChecked
             for Key, EF in Felder {
                 if (Key != "Beliebtheit") {
                     EF.Visible := Sichtbar
+                    FelderLabels[Key].Visible := Sichtbar
                 }
             }
-            for Lbl in FelderLabels {
-                ; Beliebtheit-Label bleibt immer sichtbar (eigenes Feld, nicht Teil vom Warenbestand)
-            }
         }
-        CBUeberspringen.OnEvent("Click", UeberspringenToggle)
+        CBIndikator.OnEvent("Click", UeberspringenToggle)
+        CBLabel.OnEvent("Click", UeberspringenToggle)
     }
 
     CY += 8
 
-    ; --- Start-Modus (nur beim allerersten Start relevant) ---
-    RadioSofort := ""
+    ; --- Start-Modus (nur beim allerersten Start relevant) - eigene farbige
+    ; "Pille"-Auswahl statt nativer Radio-Buttons (bessere Lesbarkeit). ---
+    StartSofort := true
+    BoxSofort := "", BoxCooldown := ""
     if ZeigStartOptionen {
         SDlg.Add("Text", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h1 0x10")
         CY += 12
@@ -1750,9 +1775,19 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
         SDlg.SetFont("s9 Norm", "Consolas")
         SDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r3", T("startmodus_frage"))
         CY += 50
-        RadioSofort := SDlg.Add("Radio", "cDDDDDD x" . InhaltX . " y" . CY . " w220 Checked", T("startmodus_sofort"))
-        RadioCooldown := SDlg.Add("Radio", "x+10 y" . CY . " w220", T("startmodus_cooldown"))
+
+        SDlg.SetFont("s10 Bold", "Consolas")
+        BoxSofort := SDlg.Add("Text", "+0x100 +0x200 x" . InhaltX . " y" . CY . " w220 h38 Background" . AkzentFarbe . " cFFFFFF Center", T("startmodus_sofort"))
+        BoxCooldown := SDlg.Add("Text", "+0x100 +0x200 x+20 y" . CY . " w220 h38 Background2A2A2A cAAAAAA Center", T("startmodus_cooldown"))
         CY += 34
+
+        StartModusWaehlen(IstSofort, *) {
+            StartSofort := IstSofort
+            BoxSofort.Opt(StartSofort ? "Background" . AkzentFarbe . " cFFFFFF" : "Background2A2A2A cAAAAAA")
+            BoxCooldown.Opt(!StartSofort ? "Background" . AkzentFarbe . " cFFFFFF" : "Background2A2A2A cAAAAAA")
+        }
+        BoxSofort.OnEvent("Click", StartModusWaehlen.Bind(true))
+        BoxCooldown.OnEvent("Click", StartModusWaehlen.Bind(false))
     }
 
     CY += 10
@@ -1761,7 +1796,7 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
     BtnAbbrechen := SDlg.Add("Button", "x+20 w220 h44", T("btn_abbrechen"))
 
     OkKlick(*) {
-        WarenbestandBekanntLokal := (CBUeberspringen = "" || !CBUeberspringen.Value)
+        WarenbestandBekanntLokal := (CBIndikator = "" || !CBChecked)
         if WarenbestandBekanntLokal {
             if Felder.Has("Lager1")
                 KistenLager1 := Integer(IsNumber(Felder["Lager1"].Value) ? Felder["Lager1"].Value : KistenLager1)
@@ -1779,7 +1814,7 @@ ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
         if Felder.Has("Beliebtheit")
             NachtclubBeliebtheit := Integer(IsNumber(Felder["Beliebtheit"].Value) ? Felder["Beliebtheit"].Value : NachtclubBeliebtheit)
 
-        Ergebnis := Map("abgebrochen", false, "warenbestand_bekannt", HatLager ? WarenbestandBekanntLokal : false, "sofort_starten", (RadioSofort = "" || RadioSofort.Value))
+        Ergebnis := Map("abgebrochen", false, "warenbestand_bekannt", HatLager ? WarenbestandBekanntLokal : false, "sofort_starten", StartSofort)
         SDlg.Destroy()
     }
     AbbrechenKlick(*) {
@@ -2351,10 +2386,12 @@ UpdateDashboard(StatusText) {
     KY := BasisY
 
     NachtclubBox.Visible := BesitztNachtclub
+    NachtclubStreifen.Visible := BesitztNachtclub
     NCBarCtrl.Visible := BesitztNachtclub
     NCPercentCtrl.Visible := BesitztNachtclub
     if BesitztNachtclub {
         NachtclubBox.Move(, KY)
+        NachtclubStreifen.Move(, KY + 1)
         NCBarCtrl.Move(BasisX + 15, KY + 17)
         NCPercentCtrl.Move(BasisX + 793, KY + 18)
         NCBarCtrl.Value := NachtclubBeliebtheit
@@ -2365,15 +2402,17 @@ UpdateDashboard(StatusText) {
         else
             NCBarCtrl.Opt("cFF0000")
         NCPercentCtrl.Value := NachtclubBeliebtheit . "%"
-        KY += 44 + 5
+        KY += 44 + 8
     }
 
     WarenlagerBox.Visible := BesitztNachtclubWarenlager
+    WarenlagerStreifen.Visible := BesitztNachtclubWarenlager
     WarenlagerBarCtrl.Visible := BesitztNachtclubWarenlager
     WarenlagerPercentCtrl.Visible := BesitztNachtclubWarenlager
     WarenlagerInfoCtrl.Visible := BesitztNachtclubWarenlager
     if BesitztNachtclubWarenlager {
         WarenlagerBox.Move(, KY)
+        WarenlagerStreifen.Move(, KY + 1)
         WarenlagerBarCtrl.Move(BasisX + 15, KY + 17)
         WarenlagerPercentCtrl.Move(BasisX + 793, KY + 18)
         WarenlagerInfoCtrl.Move(BasisX + 15, KY + 38)
@@ -2386,19 +2425,21 @@ UpdateDashboard(StatusText) {
         WarenlagerBarCtrl.Opt(ProzentWL >= 100 ? "cFFFF00" : "c" . AkzentFarbe)
         WarenlagerPercentCtrl.Value := ProzentWL . "%"
         WarenlagerInfoCtrl.Value := TPn("warenlager_geschaetzt", FormatGeld(GeschaetzterWert), FormatGeld(NachtclubWarenlagerMaxWert), Round(VergangeneStundenWL, 1))
-        KY += 58 + 5
+        KY += 58 + 8
     }
 
     ; EVENT-BONI: immer sichtbar (nicht ownership-abhängig), rückt aber mit
     ; hoch, falls Nachtclub/Warenlager oben fehlen.
     EventBoniBox.Move(, KY)
+    EventBoniStreifen.Move(, KY + 1)
     EventBoniTextCtrl.Move(BasisX + 15, KY + 17)
     EventBoniStatusCtrl.Move(BasisX + 15, KY + 56)
-    KY += 74 + 5
+    KY += 74 + 8
 
     ; LAGER & HANGAR: an die neue Kettenposition verschieben - die
     ; nachfolgende Packing-Logik liest die Position gleich per GetPos() aus.
     LagerBox.Move(, KY)
+    LagerStreifen.Move(, KY + 1)
 
     ; ===================== LAGER & HANGAR-KARTE =====================
     LagerBox.Visible := (BesitztLagerhaus || BesitztHangar) && WarenbestandBekannt
