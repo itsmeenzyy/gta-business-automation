@@ -42,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeKomplettSetup() g
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "8.6"
+global AktuelleVersion := "8.7"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -2214,7 +2214,7 @@ EventBoniNeuLaden() {
 +2::SonderfrachtSchnellModusUmschalten()
 
 SonderfrachtSchnellModusUmschalten() {
-    global SonderfrachtSchnellModusAktiv, BesitztLagerhaus, SonderfrachtZielZeit
+    global SonderfrachtSchnellModusAktiv, BesitztLagerhaus, SonderfrachtZielZeit, AutomatisierungBeschaeftigt
 
     if !BesitztLagerhaus {
         UpdateDashboard(T("sonderfracht_schnell_kein_lager"))
@@ -2223,17 +2223,41 @@ SonderfrachtSchnellModusUmschalten() {
 
     SonderfrachtSchnellModusAktiv := !SonderfrachtSchnellModusAktiv
     if SonderfrachtSchnellModusAktiv {
-        SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
-        SonderfrachtZielZeit := A_TickCount + (24 * 60000)
+        if AutomatisierungBeschaeftigt {
+            ; FIX: Gerade läuft schon ein Kauf (z.B. die normale 48-Min-
+            ; Runde) - der 24-Min-Countdown soll erst NACH dessen Ende
+            ; starten, nicht schon währenddessen mitzählen.
+            SonderfrachtZielZeit := 0
+            SetTimer(WarteAufFreienSonderfrachtStart, -2000)
+        } else {
+            SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
+            SonderfrachtZielZeit := A_TickCount + (24 * 60000)
+        }
         UpdateDashboard(T("sonderfracht_schnell_aktiviert"))
     } else {
         SetTimer(SonderfrachtSchnelldurchlauf, 0)
+        SetTimer(WarteAufFreienSonderfrachtStart, 0)
         SonderfrachtZielZeit := 0
         UpdateDashboard(T("sonderfracht_schnell_deaktiviert"))
     }
     AktualisiereSteuerungszeile()
     SpeichereKistenstand()
     BestaetigungsBlitz()
+}
+
+; Wartet (prüft alle 2 Sek.), bis der gerade laufende Kauf fertig ist, bevor
+; der 24-Min-Sonderfracht-Countdown wirklich zu zählen beginnt.
+WarteAufFreienSonderfrachtStart() {
+    global AutomatisierungBeschaeftigt, SonderfrachtSchnellModusAktiv, SonderfrachtZielZeit
+    if !SonderfrachtSchnellModusAktiv
+        return
+    if AutomatisierungBeschaeftigt {
+        SetTimer(WarteAufFreienSonderfrachtStart, -2000)
+        return
+    }
+    SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
+    SonderfrachtZielZeit := A_TickCount + (24 * 60000)
+    UpdateDashboard(T("bereit"))
 }
 
 ; Zeigt EventBoniListe/EventBoniFehler in den Dashboard-Controls an.
