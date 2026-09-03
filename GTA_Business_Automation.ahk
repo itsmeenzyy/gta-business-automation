@@ -42,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeKomplettSetup() g
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "6.0"
+global AktuelleVersion := "6.1"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -466,7 +466,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v6.0")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v6.1")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -495,11 +495,16 @@ InfoGui.SetFont("s9 Bold", "Consolas")
 global WarnhinweisCtrl := InfoGui.Add("Text", "cFF5555 x" . KartenX . " y" . CursorY . " w" . KartenBreite . " r1", T("dash_warnung"))
 CursorY += 18
 
-; --- Steuerung (kompakt) - bleibt IMMER sichtbar, auch wenn Shift+H das
-; restliche Dashboard versteckt, damit du die Hotkeys nie vergisst. ---
+; --- Steuerung (kompakt, 2 Zeilen erlaubt - der Hotkey-Text ist inzwischen
+; recht lang) - bleibt IMMER sichtbar, auch wenn Shift+H das restliche
+; Dashboard versteckt, damit du die Hotkeys nie vergisst. ---
 InfoGui.SetFont("s9 Norm", "Consolas")
-global SteuerungCtrl := InfoGui.Add("Text", "cAAAAAA x" . KartenX . " y" . CursorY . " w" . KartenBreite . " r1", T("dash_steuerung"))
-CursorY += 20
+global SteuerungCtrl := InfoGui.Add("Text", "cAAAAAA x" . KartenX . " y" . CursorY . " w" . KartenBreite . " r2", T("dash_steuerung"))
+CursorY += 36
+
+; Dezente Trennlinie zwischen Header und den Karten darunter
+InfoGui.Add("Text", "x" . KartenX . " y" . CursorY . " w" . KartenBreite . " h1 0x10")
+CursorY += 10
 
 ; =========================================================================
 ; 💰 KARTE: GESAMTGEWINN
@@ -777,10 +782,10 @@ DashboardUmschalten() {
 
     ; AFK-Zeit + Shutdown-Info bleiben sichtbar und rücken direkt unter die
     ; Steuerungszeile, statt an ihrer ursprünglichen (jetzt leeren) Stelle
-    ; weit unten zu hängen.
+    ; weit unten zu hängen. (Steuerungszeile ist jetzt 2 Zeilen hoch.)
     SteuerungCtrl.GetPos(&SX, &SY)
-    AfkZeitCtrl.Move(SX, SY + 22)
-    ShutdownInfoCtrl.Move(SX, SY + 40)
+    AfkZeitCtrl.Move(SX, SY + 36)
+    ShutdownInfoCtrl.Move(SX, SY + 54)
 
     InfoGui.Show("AutoSize xCenter y20 NoActivate")
     FadeUebergang(25, 255)
@@ -1077,8 +1082,6 @@ T(Key) {
         "btn_ok", Map("DE", "✓  OK", "EN", "✓  OK"),
         "btn_abbrechen", Map("DE", "✗  Abbrechen", "EN", "✗  Cancel"),
         "btn_uebernehmen", Map("DE", "✓  Übernehmen", "EN", "✓  Apply"),
-        "unternehmen_titel", Map("DE", "🏢 Unternehmens-Setup", "EN", "🏢 Business Setup"),
-        "unternehmen_subtitel", Map("DE", "Für jede Zeile die passende Option wählen, dann unten übernehmen.", "EN", "Pick the right option for each row, then apply below."),
         "spalte_unternehmen", Map("DE", "UNTERNEHMEN", "EN", "BUSINESSES"),
         "spalte_lager", Map("DE", "SONDERFRACHT-LAGERHÄUSER", "EN", "SPECIAL CARGO WAREHOUSES"),
         "warenlager_ueberschrift", Map("DE", "NACHTCLUB-WARENLAGER (Techniker)", "EN", "NIGHTCLUB WAREHOUSE (technicians)"),
@@ -1094,21 +1097,17 @@ T(Key) {
         "kisten_einheit", Map("DE", "(Kisten)", "EN", "(crates)"),
         "kisten_hangar", Map("DE", "Hangar (Kisten)", "EN", "Hangar (crates)"),
         "beliebtheit_feld", Map("DE", "Nachtclub-Beliebtheit (%)", "EN", "Nightclub popularity (%)"),
-        "warenbestand_titel", Map("DE", "Warenbestand eingeben?", "EN", "Enter warehouse stock?"),
-        "warenbestand_frage", Map("DE", "Möchtest du den genauen, aktuellen Warenbestand (Kisten) in deinen Lagern/dem Hangar eingeben?`n`nNein = Lager/Hangar-Anzeige im Dashboard bleibt ausgeblendet (Zahlen wären sonst nur geraten).", "EN", "Do you want to enter the exact, current stock (crates) in your warehouses/hangar?`n`nNo = the warehouse/hangar display stays hidden on the dashboard (the numbers would otherwise just be guessed)."),
         "startmodus_titel", Map("DE", "Start-Modus wählen", "EN", "Choose start mode"),
-        "startmodus_frage", Map("DE", "Ja = Sofort mit Einkauf starten`nNein = Erst 48-Min-Cooldown abwarten (kein Einkauf in dieser Runde)", "EN", "Yes = Start with a purchase immediately`nNo = Wait out the 48-min cooldown first (no purchase this round)"),
+        "startmodus_frage", Map("DE", "Sofort mit dem Einkauf starten, oder erst die Wartezeit abwarten (z.B. weil gerade erst frisch eingekauft wurde)?", "EN", "Start with a purchase immediately, or wait out the cooldown first (e.g. because you just bought)?"),
+        "startmodus_sofort", Map("DE", "⚡ Sofort starten", "EN", "⚡ Start immediately"),
+        "startmodus_cooldown", Map("DE", "⏳ Erst warten", "EN", "⏳ Wait first"),
+        "warenbestand_ueberspringen_checkbox", Map("DE", "☐ Genauen Warenbestand nicht eingeben (nur schätzen lassen)", "EN", "☐ Don't enter exact cargo stock (estimate only)"),
+        "btn_jetzt_starten", Map("DE", "🚀  Jetzt starten", "EN", "🚀  Start now"),
         "autoshutdown_titel", Map("DE", "⏻ Auto-Shutdown (optional)", "EN", "⏻ Auto-Shutdown (optional)"),
         "autoshutdown_frage", Map("DE", "Nach wie vielen Runden soll der PC automatisch heruntergefahren werden?`n(0 oder leer = nie automatisch herunterfahren)", "EN", "After how many rounds should the PC shut down automatically?`n(0 or empty = never shut down automatically)"),
         "autoshutdown_deaktiviert_live", Map("DE", "= Auto-Shutdown deaktiviert", "EN", "= Auto-shutdown disabled"),
         "autoshutdown_voraussichtlich", Map("DE", "= voraussichtl. {1}Std {2}Min Gesamt-AFK-Zeit   →   Shutdown ca. um {3} Uhr", "EN", "= estimated {1}h {2}m total AFK time   →   Shutdown at approx. {3}"),
-        "intervall_titel", Map("DE", "⏱️ Rundenintervall", "EN", "⏱️ Round interval"),
-        "intervall_frage", Map("DE", "Wie viele Minuten zwischen den Runden warten?`n(Standard: 48 Min. Bei 2x-Speed-Events z.B. auf Fracht: 24 Min.)", "EN", "How many minutes to wait between rounds?`n(Default: 48 min. During 2x speed events e.g. on cargo: 24 min.)"),
-        "intervall_aktuell", Map("DE", "= aktuell eingestellt: {1} Min. pro Runde", "EN", "= currently set: {1} min. per round"),
-        "werte_bestaetigen_titel", Map("DE", "Werte bestätigen", "EN", "Confirm values"),
-        "werte_bestaetigen_intro", Map("DE", "Bitte prüfen, bevor die Automatisierung startet:", "EN", "Please check before the automation starts:"),
         "farbauswahl_titel", Map("DE", "🎨 Akzentfarbe wählen", "EN", "🎨 Choose accent color"),
-        "farbauswahl_subtitel", Map("DE", "Bestimmt die Farbe von Rahmen, Titeln und Akzentbalken im ganzen Dashboard.", "EN", "Sets the color of borders, titles, and accent bars throughout the dashboard."),
         "karte_eventboni", Map("DE", "📢 EVENT-BONI DIESE WOCHE", "EN", "📢 EVENT BONUSES THIS WEEK"),
         "eventboni_laedt", Map("DE", "Werte ab...", "EN", "Loading..."),
         "eventboni_fehler", Map("DE", "Konnte Boni nicht laden. Debug-Datei: GTA_EventBoni_Debug.txt (im Skript-Ordner). Shift+B = erneut versuchen. Manuell prüfen: {1}", "EN", "Couldn't load bonuses. Debug file: GTA_EventBoni_Debug.txt (in script folder). Shift+B = retry. Check manually: {1}"),
@@ -1128,8 +1127,6 @@ T(Key) {
         "update_fehler", Map("DE", "Update-Prüfung fehlgeschlagen: {1}", "EN", "Update check failed: {1}"),
         "update_aktuell", Map("DE", "Du hast bereits die neueste Version ({1}).", "EN", "You already have the latest version ({1})."),
         "update_nicht_konfiguriert", Map("DE", "Auto-Update ist nicht eingerichtet (siehe Kommentar am Skriptanfang).", "EN", "Auto-update isn't set up yet (see comment at the top of the script)."),
-        "jetzt_starten_frage", Map("DE", "Automatisierung jetzt starten?", "EN", "Start the automation now?"),
-        "warenbestand_nicht_eingegeben", Map("DE", "Warenbestand: nicht eingegeben (Lager/Hangar-Anzeige bleibt ausgeblendet)", "EN", "Warehouse stock: not entered (warehouse/hangar display stays hidden)"),
         "biz_nachtclub", Map("DE", "Nachtclub", "EN", "Nightclub"),
         "biz_spielhalle", Map("DE", "Spielhalle", "EN", "Arcade"),
         "biz_agentur", Map("DE", "Agentur", "EN", "Agency"),
@@ -1137,11 +1134,6 @@ T(Key) {
         "biz_kautionsbuero", Map("DE", "Kautionsbüro", "EN", "Bail Office"),
         "biz_textilfabrik", Map("DE", "Textilfabrik", "EN", "Textile Factory"),
         "biz_waschanlage", Map("DE", "Waschanlage", "EN", "Car Wash"),
-        "biz_hangar", Map("DE", "Hangar", "EN", "Hangar"),
-        "lager_kurz", Map("DE", "Lager", "EN", "Warehouse"),
-        "kisten_plural", Map("DE", "Kisten", "EN", "crates"),
-        "hangar_luftfracht", Map("DE", "Hangar/Luftfracht", "EN", "Hangar/Air Cargo"),
-        "beliebtheit_kurz", Map("DE", "Nachtclub-Beliebtheit", "EN", "Nightclub popularity"),
         "handy_oeffnen", Map("DE", "Handy öffnen", "EN", "Open phone"),
         "zur_vinewood_navigieren", Map("DE", "Zur Vinewood-App navigieren", "EN", "Navigate to the Vinewood app"),
         "vinewood_oeffnen", Map("DE", "Vinewood-App öffnen", "EN", "Open the Vinewood app"),
@@ -1180,7 +1172,6 @@ T(Key) {
         "runde_label", Map("DE", "Runde", "EN", "Round"),
         "gesamte_afk_zeit_label", Map("DE", "Gesamte AFK-Zeit", "EN", "Total AFK time"),
         "std_kurz", Map("DE", "Std", "EN", "hrs"),
-        "min_kurz", Map("DE", "Min", "EN", "min"),
         "mitarbeiter_kosten_label", Map("DE", "Mitarbeiter-Kosten", "EN", "Staff costs"),
         "bar_geld_label", Map("DE", "Bar-Geld", "EN", "Cash"),
         "club_kurz", Map("DE", "Club", "EN", "Club"),
@@ -1658,8 +1649,19 @@ ZeigeEingabe(Titel, Frage, Standardwert := "") {
 ; Beliebtheit, statt vieler Einzelfenster nacheinander. Zeigt nur Zeilen für
 ; tatsächlich besessene Lager/Hangar/Nachtclub.
 ; =========================================================================
-ZeigeSpielstandEingabe(MitKisten) {
+; =========================================================================
+; 📋 SYNC & START: EIN Fenster für Warenbestand-Eingabe (mit Überspringen-
+; Checkbox statt separatem Ja/Nein-Fenster), Nachtclub-Beliebtheit UND -
+; beim allerersten Start - direkt auch den Start-Modus (Sofort/Cooldown).
+; Ersetzt damit 3-4 vorher separate, nacheinander aufploppende Fenster.
+; Rückgabe: Map mit "abgebrochen" (bool), "warenbestand_bekannt" (bool),
+; "sofort_starten" (bool, nur relevant wenn ZeigStartOptionen=true).
+; =========================================================================
+ZeigeSpielstandEingabe(ZeigStartOptionen := false) {
     global KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, BesitztNachtclub, BesitztHangar, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, AkzentFarbe
+
+    Ergebnis := Map("abgebrochen", true, "warenbestand_bekannt", false, "sofort_starten", true)
+    HatLager := BesitztLager1 || BesitztLager2 || BesitztLager3 || BesitztLager4 || BesitztLager5 || BesitztHangar
 
     SDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", T("spielstand_titel"))
     SDlg.BackColor := "111111"
@@ -1677,60 +1679,107 @@ ZeigeSpielstandEingabe(MitKisten) {
     CY += 14
     SDlg.SetFont("s10 Norm", "Consolas")
     SDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r2", T("spielstand_subtitel"))
-    CY += 40
+    CY += 36
 
-    ReihenHoehe := 40
-    ; FIX: interner Schlüssel (sprachunabhängig) getrennt vom angezeigten,
-    ; übersetzten Label - so bleibt Felder.Has(...) unabhängig von der Sprache.
+    ; FIX: Checkbox statt separatem Ja/Nein-Fenster davor - beim Anhaken
+    ; werden die Kisten-Felder unten einfach ausgeblendet/ignoriert.
+    CBUeberspringen := ""
+    if HatLager {
+        SDlg.SetFont("s10 Norm", "Consolas")
+        CBUeberspringen := SDlg.Add("Checkbox", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("warenbestand_ueberspringen_checkbox"))
+        CY += 32
+    }
+
+    ReihenHoehe := 38
     Felder := Map()
+    FelderLabels := []
 
     ZeileHinzufuegen(SchluesselIntern, AnzeigeLabel, AktuellerWert) {
-        SDlg.SetFont("s10 Bold", "Consolas")
-        SDlg.Add("Text", "cDDDDDD x" . InhaltX . " y" . (CY + 6) . " w220", AnzeigeLabel . ":")
+        Lbl := SDlg.Add("Text", "cDDDDDD x" . InhaltX . " y" . (CY + 6) . " w220", AnzeigeLabel . ":")
         SDlg.SetFont("s12 Norm", "Consolas")
         EF := SDlg.Add("Edit", "x" . (InhaltX + 225) . " y" . CY . " w" . (InhaltBreite - 225) . " h30 cFFFFFF Background2A2A2A -E0x200", AktuellerWert)
+        SDlg.SetFont("s10 Bold", "Consolas")
         Felder[SchluesselIntern] := EF
+        FelderLabels.Push(Lbl)
         CY += ReihenHoehe
     }
 
     LagerWort := T("kisten_lager"), KistenWort := T("kisten_einheit")
-    if MitKisten {
-        if BesitztLager1
-            ZeileHinzufuegen("Lager1", LagerWort . " 1 " . KistenWort, KistenLager1)
-        if BesitztLager2
-            ZeileHinzufuegen("Lager2", LagerWort . " 2 " . KistenWort, KistenLager2)
-        if BesitztLager3
-            ZeileHinzufuegen("Lager3", LagerWort . " 3 " . KistenWort, KistenLager3)
-        if BesitztLager4
-            ZeileHinzufuegen("Lager4", LagerWort . " 4 " . KistenWort, KistenLager4)
-        if BesitztLager5
-            ZeileHinzufuegen("Lager5", LagerWort . " 5 " . KistenWort, KistenLager5)
-        if BesitztHangar
-            ZeileHinzufuegen("Hangar", T("kisten_hangar"), KistenHangar)
-    }
+    SDlg.SetFont("s10 Bold", "Consolas")
+    if BesitztLager1
+        ZeileHinzufuegen("Lager1", LagerWort . " 1 " . KistenWort, KistenLager1)
+    if BesitztLager2
+        ZeileHinzufuegen("Lager2", LagerWort . " 2 " . KistenWort, KistenLager2)
+    if BesitztLager3
+        ZeileHinzufuegen("Lager3", LagerWort . " 3 " . KistenWort, KistenLager3)
+    if BesitztLager4
+        ZeileHinzufuegen("Lager4", LagerWort . " 4 " . KistenWort, KistenLager4)
+    if BesitztLager5
+        ZeileHinzufuegen("Lager5", LagerWort . " 5 " . KistenWort, KistenLager5)
+    if BesitztHangar
+        ZeileHinzufuegen("Hangar", T("kisten_hangar"), KistenHangar)
     if BesitztNachtclub
         ZeileHinzufuegen("Beliebtheit", T("beliebtheit_feld"), NachtclubBeliebtheit)
 
-    CY += 6
-    SDlg.SetFont("s11 Bold", "Consolas")
-    BtnOK := SDlg.Add("Button", "x" . InhaltX . " y" . CY . " w220 h44 Default", T("btn_uebernehmen"))
+    ; Kisten-Felder beim Anhaken der Checkbox aus-/wieder einblenden
+    if (CBUeberspringen != "") {
+        UeberspringenToggle(*) {
+            Sichtbar := !CBUeberspringen.Value
+            for Key, EF in Felder {
+                if (Key != "Beliebtheit") {
+                    EF.Visible := Sichtbar
+                }
+            }
+            for Lbl in FelderLabels {
+                ; Beliebtheit-Label bleibt immer sichtbar (eigenes Feld, nicht Teil vom Warenbestand)
+            }
+        }
+        CBUeberspringen.OnEvent("Click", UeberspringenToggle)
+    }
+
+    CY += 8
+
+    ; --- Start-Modus (nur beim allerersten Start relevant) ---
+    RadioSofort := ""
+    if ZeigStartOptionen {
+        SDlg.Add("Text", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h1 0x10")
+        CY += 12
+        SDlg.SetFont("s10 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("startmodus_titel"))
+        CY += 22
+        SDlg.SetFont("s9 Norm", "Consolas")
+        SDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r3", T("startmodus_frage"))
+        CY += 50
+        RadioSofort := SDlg.Add("Radio", "cDDDDDD x" . InhaltX . " y" . CY . " w220 Checked", T("startmodus_sofort"))
+        RadioCooldown := SDlg.Add("Radio", "x+10 y" . CY . " w220", T("startmodus_cooldown"))
+        CY += 34
+    }
+
+    CY += 10
+    SDlg.SetFont("s12 Bold", "Consolas")
+    BtnOK := SDlg.Add("Button", "x" . InhaltX . " y" . CY . " w220 h44 Default", ZeigStartOptionen ? T("btn_jetzt_starten") : T("btn_uebernehmen"))
     BtnAbbrechen := SDlg.Add("Button", "x+20 w220 h44", T("btn_abbrechen"))
 
     OkKlick(*) {
-        if Felder.Has("Lager1")
-            KistenLager1 := Integer(IsNumber(Felder["Lager1"].Value) ? Felder["Lager1"].Value : KistenLager1)
-        if Felder.Has("Lager2")
-            KistenLager2 := Integer(IsNumber(Felder["Lager2"].Value) ? Felder["Lager2"].Value : KistenLager2)
-        if Felder.Has("Lager3")
-            KistenLager3 := Integer(IsNumber(Felder["Lager3"].Value) ? Felder["Lager3"].Value : KistenLager3)
-        if Felder.Has("Lager4")
-            KistenLager4 := Integer(IsNumber(Felder["Lager4"].Value) ? Felder["Lager4"].Value : KistenLager4)
-        if Felder.Has("Lager5")
-            KistenLager5 := Integer(IsNumber(Felder["Lager5"].Value) ? Felder["Lager5"].Value : KistenLager5)
-        if Felder.Has("Hangar")
-            KistenHangar := Integer(IsNumber(Felder["Hangar"].Value) ? Felder["Hangar"].Value : KistenHangar)
+        WarenbestandBekanntLokal := (CBUeberspringen = "" || !CBUeberspringen.Value)
+        if WarenbestandBekanntLokal {
+            if Felder.Has("Lager1")
+                KistenLager1 := Integer(IsNumber(Felder["Lager1"].Value) ? Felder["Lager1"].Value : KistenLager1)
+            if Felder.Has("Lager2")
+                KistenLager2 := Integer(IsNumber(Felder["Lager2"].Value) ? Felder["Lager2"].Value : KistenLager2)
+            if Felder.Has("Lager3")
+                KistenLager3 := Integer(IsNumber(Felder["Lager3"].Value) ? Felder["Lager3"].Value : KistenLager3)
+            if Felder.Has("Lager4")
+                KistenLager4 := Integer(IsNumber(Felder["Lager4"].Value) ? Felder["Lager4"].Value : KistenLager4)
+            if Felder.Has("Lager5")
+                KistenLager5 := Integer(IsNumber(Felder["Lager5"].Value) ? Felder["Lager5"].Value : KistenLager5)
+            if Felder.Has("Hangar")
+                KistenHangar := Integer(IsNumber(Felder["Hangar"].Value) ? Felder["Hangar"].Value : KistenHangar)
+        }
         if Felder.Has("Beliebtheit")
             NachtclubBeliebtheit := Integer(IsNumber(Felder["Beliebtheit"].Value) ? Felder["Beliebtheit"].Value : NachtclubBeliebtheit)
+
+        Ergebnis := Map("abgebrochen", false, "warenbestand_bekannt", HatLager ? WarenbestandBekanntLokal : false, "sofort_starten", (RadioSofort = "" || RadioSofort.Value))
         SDlg.Destroy()
     }
     AbbrechenKlick(*) {
@@ -1744,6 +1793,7 @@ ZeigeSpielstandEingabe(MitKisten) {
 
     SDlg.Show("AutoSize xCenter yCenter")
     WinWaitClose("ahk_id " . SDlg.Hwnd)
+    return Ergebnis
 }
 
 ; =========================================================================
@@ -1864,7 +1914,7 @@ AktualisiereEventBoniAnzeige() {
 }
 
 SpielstandSync() {
-    global KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, AutomationAktiv, ZielZeit, BesitztNachtclub, BesitztHangar, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, WarenbestandBekannt
+    global AutomationAktiv, ZielZeit, WarenbestandBekannt
 
     ; FIX: Alle Timer pausieren, BEVOR die Eingabefenster aufgehen - sonst
     ; könnte z.B. AntiAFK oder der 48-Min-Timer während der Eingabe feuern
@@ -1873,17 +1923,12 @@ SpielstandSync() {
     SetTimer(AntiAFK, 0)
     SetTimer(CountdownTicker, 0)
 
-    ; FIX: Erst fragen, ob der genaue Warenbestand (Kisten) überhaupt
-    ; eingegeben werden soll. Falls nein, werden die Fragen dazu übersprungen
-    ; und die Lager/Hangar-Karte blendet sich im Dashboard komplett aus, da
-    ; die Zahlen sonst irreführend (einfach nur geraten) wären.
-    if (BesitztLager1 || BesitztLager2 || BesitztLager3 || BesitztLager4 || BesitztLager5 || BesitztHangar)
-        WarenbestandBekannt := ZeigeFrage(T("warenbestand_titel"), T("warenbestand_frage"))
-    else
-        WarenbestandBekannt := false
-
-    if WarenbestandBekannt || BesitztNachtclub
-        ZeigeSpielstandEingabe(WarenbestandBekannt)
+    ; FIX: Warenbestand-Frage ist jetzt eine Checkbox INNERHALB desselben
+    ; Fensters (siehe ZeigeSpielstandEingabe), kein separates Ja/Nein-Fenster
+    ; mehr davor nötig.
+    Ergebnis := ZeigeSpielstandEingabe(false)
+    if !Ergebnis["abgebrochen"]
+        WarenbestandBekannt := Ergebnis["warenbestand_bekannt"]
 
     SpeichereKistenstand()
     UpdateDashboard(T("spielstand_synchronisiert"))
@@ -1903,55 +1948,23 @@ SpielstandSync() {
 }
 
 StartAutomation() {
-    global InfoGui, StartZeit, AutomationAktiv, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, ZielZeit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, KistenDateiPfad, ZielRundenAnzahl, WarenbestandBekannt, RundenIntervallMinuten
+    global InfoGui, StartZeit, AutomationAktiv, ZielZeit, WarenbestandBekannt, RundenIntervallMinuten
 
-    ; FIX: Unternehmen/Lager/Auto-Shutdown werden jetzt bereits EINMALIG beim
+    ; FIX: Unternehmen/Lager/Auto-Shutdown werden bereits EINMALIG beim
     ; Skriptstart im Komplett-Setup-Fenster festgelegt (siehe ZeigeKomplett-
-    ; Setup() ganz am Anfang) - hier beim ersten Shift+P nur noch der aktuelle
-    ; Spielstand (Kisten/Beliebtheit) synchronisieren und bestätigen lassen.
+    ; Setup() ganz am Anfang). Hier beim ersten Shift+P nur noch EIN Fenster:
+    ; Spielstand (Kisten/Beliebtheit) + Start-Modus zusammen, statt vorher
+    ; 3 separate Fenster (Sync, Bestätigung, Start-Modus) nacheinander.
     if (StartZeit = 0) {
-        SpielstandSync()
-
-        ; FIX: Nach der Eingabe nochmal gesondert bestätigen lassen (mit
-        ; Zusammenfassung), bevor die Automatisierung wirklich losläuft -
-        ; so kann ein Tippfehler bei der Eingabe nicht unbemerkt durchrutschen.
-        Zusammenfassung := T("werte_bestaetigen_intro") . "`n`n"
-        Zusammenfassung .= T("biz_nachtclub") . ": " . (BesitztNachtclub ? T("ja") : T("nein")) . " | " . T("biz_spielhalle") . ": " . (BesitztSpielhalle ? T("ja") : T("nein")) . " | " . T("biz_agentur") . ": " . (BesitztAgentur ? T("ja") : T("nein")) . "`n"
-        Zusammenfassung .= T("biz_schrotthandel") . ": " . (BesitztSchrotthandel ? T("ja") : T("nein")) . " | " . T("biz_kautionsbuero") . ": " . (BesitztKautionsbuero ? T("ja") : T("nein")) . " | " . T("biz_textilfabrik") . ": " . (BesitztTextilfabrik ? T("ja") : T("nein")) . "`n"
-        Zusammenfassung .= T("biz_waschanlage") . ": " . (BesitztWaschanlage ? T("ja") : T("nein")) . " | " . T("biz_hangar") . ": " . (BesitztHangar ? T("ja") : T("nein")) . "`n"
-        Zusammenfassung .= T("lager_kurz") . " 1-5: " . (BesitztLager1?T("ja"):T("nein")) . "/" . (BesitztLager2?T("ja"):T("nein")) . "/" . (BesitztLager3?T("ja"):T("nein")) . "/" . (BesitztLager4?T("ja"):T("nein")) . "/" . (BesitztLager5?T("ja"):T("nein")) . "`n`n"
-        if WarenbestandBekannt {
-            if BesitztLager1
-                Zusammenfassung .= T("lager_kurz") . " 1: " . KistenLager1 . " " . T("kisten_plural") . "`n"
-            if BesitztLager2
-                Zusammenfassung .= T("lager_kurz") . " 2: " . KistenLager2 . " " . T("kisten_plural") . "`n"
-            if BesitztLager3
-                Zusammenfassung .= T("lager_kurz") . " 3: " . KistenLager3 . " " . T("kisten_plural") . "`n"
-            if BesitztLager4
-                Zusammenfassung .= T("lager_kurz") . " 4: " . KistenLager4 . " " . T("kisten_plural") . "`n"
-            if BesitztLager5
-                Zusammenfassung .= T("lager_kurz") . " 5: " . KistenLager5 . " " . T("kisten_plural") . "`n"
-            if BesitztHangar
-                Zusammenfassung .= T("hangar_luftfracht") . ": " . KistenHangar . " " . T("kisten_plural") . "`n"
-        } else if (BesitztLager1 || BesitztLager2 || BesitztLager3 || BesitztLager4 || BesitztLager5 || BesitztHangar) {
-            Zusammenfassung .= T("warenbestand_nicht_eingegeben") . "`n"
-        }
-        if BesitztNachtclub
-            Zusammenfassung .= T("beliebtheit_kurz") . ": " . NachtclubBeliebtheit . "%`n"
-        Zusammenfassung .= "`n" . T("jetzt_starten_frage")
-
-        Antwort := ZeigeFrage(T("werte_bestaetigen_titel"), Zusammenfassung, 16)
-        if !Antwort {
+        Ergebnis := ZeigeSpielstandEingabe(true)
+        if Ergebnis["abgebrochen"] {
             UpdateDashboard(T("start_abgebrochen"))
             return
         }
+        WarenbestandBekannt := Ergebnis["warenbestand_bekannt"]
+        SpeichereKistenstand()
 
-        ; FIX: Wahlmöglichkeit - sofort mit dem Einkauf starten, oder erst
-        ; die Wartezeit abwarten (z.B. weil gerade erst frisch eingekauft
-        ; wurde und noch nichts abzuholen ist).
-        StartWahl := ZeigeFrage(T("startmodus_titel"), T("startmodus_frage"), 4)
-
-        if !StartWahl {
+        if !Ergebnis["sofort_starten"] {
             StartZeit := A_TickCount
             AutomationAktiv := true
             InfoGui.Show("AutoSize xCenter y20 NoActivate")
