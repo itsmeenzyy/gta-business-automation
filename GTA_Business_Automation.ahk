@@ -42,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "5.4"
+global AktuelleVersion := "5.6"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -281,8 +281,130 @@ KombinationsListe() {
 }
 
 ; =========================================================================
-; 🛠️ ENGINE (DASHBOARD & STATISTIK)
+; ⚡ SONDERFRACHT-SCHNELLLISTE (für den optionalen 24-Min-2x-Speed-Modus):
+; Navigiert MINIMAL nur zu den Lagerhäusern - überspringt Einkünfte, Hangar
+; und Kautionsbüro komplett, um Zeit zu sparen. Genau dieselbe Ziel-Position
+; (Lagerhaus-Zeile) wie im vollen Ablauf, nur ohne die anderen Kategorien
+; vorher zu besuchen:
+;   - Statt Enter1 auf "Einkünfte" wird direkt "Oben" zu "Personal verwalten"
+;     navigiert (überspringt die Einkünfte-Kategorie komplett).
+;   - Innerhalb von "Personal verwalten" wird die Hangar-Zeile nur mit einem
+;     "Unten" übersprungen (kein Enter), direkt weiter zum Lagerhaus.
+;   - Nach dem Lagerhaus wird NICHT mehr zum Kautionsbüro weitergegangen -
+;     stattdessen direkt geschlossen (3x Zurück, wie im vollen Ablauf auch).
 ; =========================================================================
+SonderfrachtSchnellListe() {
+    global BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5
+
+    L := []
+    if !BesitztLagerhaus
+        return L
+
+    L.Push(["Oben", T("handy_oeffnen")])
+    L.Push(["Rechts", T("zur_vinewood_navigieren")])
+    L.Push(["Enter1", T("vinewood_oeffnen")])
+
+    ; Direkt zu "Personal verwalten" - überspringt "Einkünfte" komplett.
+    L.Push(["Oben", T("zu_personal_navigieren")])
+    L.Push(["Enter1", T("personal_menu_oeffnen")])
+
+    ; Hangar-Zeile nur überspringen (kein Enter), direkt weiter zum Lagerhaus.
+    L.Push(["Unten", T("zum_lagerhaus_navigieren")])
+    L.Push(["Enter1", T("lagerhaeuser_menu_oeffnen")])
+
+    ErstesLager := true
+    if BesitztLager1 {
+        L.Push(["Enter", TP("lagerhaus_n_fracht", 1), "Lager1"])
+        ErstesLager := false
+    }
+    if BesitztLager2 {
+        if !ErstesLager
+            L.Push(["Unten", T("zum_naechsten_lagerhaus")])
+        L.Push(["Enter", TP("lagerhaus_n_fracht", 2), "Lager2"])
+        ErstesLager := false
+    }
+    if BesitztLager3 {
+        if !ErstesLager
+            L.Push(["Unten", T("zum_naechsten_lagerhaus")])
+        L.Push(["Enter", TP("lagerhaus_n_fracht", 3), "Lager3"])
+        ErstesLager := false
+    }
+    if BesitztLager4 {
+        if !ErstesLager
+            L.Push(["Unten", T("zum_naechsten_lagerhaus")])
+        L.Push(["Enter", TP("lagerhaus_n_fracht", 4), "Lager4"])
+        ErstesLager := false
+    }
+    if BesitztLager5 {
+        if !ErstesLager
+            L.Push(["Unten", T("zum_naechsten_lagerhaus")])
+        L.Push(["Enter", TP("lagerhaus_n_fracht", 5), "Lager5"])
+        ErstesLager := false
+    }
+    L.Push(["Zurück", T("zurueck_personal_liste")])
+
+    ; Schließen - exakt wie im vollen Ablauf (3x Zurück von derselben Stelle).
+    L.Push(["Zurück", TP("vinewood_schliessen_n", 1)])
+    L.Push(["Zurück", TP("vinewood_schliessen_n", 2)])
+    L.Push(["Zurück", T("handy_menu_verlassen")])
+
+    return L
+}
+
+; =========================================================================
+; ⚡ SONDERFRACHT-SCHNELLDURCHLAUF: läuft alle 24 Min. (unabhängig vom
+; normalen 48-Min-Rundenzyklus, der weiterhin ganz normal daneben läuft),
+; NUR wenn per Shift+2 aktiviert. Holt NUR Sonderfracht ab, sonst nichts.
+; =========================================================================
+SonderfrachtSchnelldurchlauf() {
+    global SonderfrachtSchnellModusAktiv, BesitztLagerhaus, AutomationAktiv, AutomatisierungBeschaeftigt
+
+    if !SonderfrachtSchnellModusAktiv
+        return
+    if !AutomationAktiv {
+        ; Automatisierung läuft gerade nicht (pausiert/noch nicht gestartet) -
+        ; einfach in 1 Min. erneut prüfen, statt den 24-Min-Takt zu verlieren.
+        SetTimer(SonderfrachtSchnelldurchlauf, -60000)
+        return
+    }
+    if !BesitztLagerhaus
+        return
+
+    ; FIX: Falls die normale 48-Min-Runde genau jetzt aktiv Tasten sendet,
+    ; kurz warten und in 2 Min. erneut versuchen - niemals gleichzeitig
+    ; Tasten aus zwei Quellen senden.
+    if AutomatisierungBeschaeftigt {
+        SetTimer(SonderfrachtSchnelldurchlauf, -120000)
+        return
+    }
+
+    Liste := SonderfrachtSchnellListe()
+    if (Liste.Length = 0)
+        return
+
+    ; FIX: Genau wie beim vollen Rundenablauf - AntiAFK/Countdown-Anzeige
+    ; kurz pausieren, damit sich keine Tasten mit dem Schnelldurchlauf
+    ; überschneiden, danach wieder aktivieren (die normale 48-Min-Wartezeit
+    ; läuft ja parallel unbeeinflusst im Hintergrund weiter).
+    SetTimer(AntiAFK, 0)
+    SetTimer(CountdownTicker, 0)
+
+    Ergebnis := FuehreListeAus(Liste, T("sonderfracht_schnell_laeuft"))
+    if (Ergebnis["vorheriges"] != "" && WinExist(Ergebnis["vorheriges"]))
+        WinActivate(Ergebnis["vorheriges"])
+
+    SetTimer(CountdownTicker, 1000)
+    SetTimer(AntiAFK, 8000)
+
+    ; Nächsten Schnelldurchlauf in 24 Min. einplanen, solange der Modus noch
+    ; aktiv ist (falls inzwischen per Shift+2 deaktiviert, nicht neu planen).
+    if SonderfrachtSchnellModusAktiv
+        SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
+
+    UpdateDashboard(T("bereit"))
+}
+
+
 
 global RundenZaehler := 0
 global TotalKosten := 0
@@ -294,6 +416,7 @@ global TotalKautionMax := 0
 global StartZeit := 0
 global AutomationAktiv := false
 global ZielRundenAnzahl := 0  ; 0 = kein automatisches Herunterfahren
+global RundenIntervallMinuten := 48  ; Standard 48 Min - bei 2x-Speed-Events (z.B. Sonderfracht) auf 24 stellbar
 global WarenbestandBekannt := true  ; false = Nutzer wollte Kisten nicht eingeben
 global AktuellerFlavorText := ""    ; zufälliger Warte-Text, siehe WaehleFlavorText()
 
@@ -332,7 +455,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.4")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.6")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -490,10 +613,12 @@ FadeUebergang(0, 255)
 
 ; Gespeicherten Kistenstand aus der letzten Session laden
 LadeKistenstand()
+AktualisiereSteuerungszeile()
 
 global DashboardSichtbar := true
 global AutomatisierungBeschaeftigt := false
 global UpdateVerfuegbarVersion := ""
+global SonderfrachtSchnellModusAktiv := false  ; 2x-Speed: Sonderfracht alle 24 statt 48 Min. abholen
 
 ; FIX: Direkt einmal aktualisieren (nicht erst beim ersten Shift+P) - sonst
 ; bleiben Karten (z.B. Spezialfracht & Hangar), die erst durch UpdateDashboard()
@@ -766,7 +891,7 @@ T(Key) {
     static Texte := Map(
         "dash_titel", Map("DE", "🎮 GTA BUSINESS DASHBOARD", "EN", "🎮 GTA BUSINESS DASHBOARD"),
         "dash_warnung", Map("DE", "⚠ GTA muss im FENSTERMODUS/RANDLOS laufen (nicht exklusives Vollbild)!", "EN", "⚠ GTA must run in WINDOWED/BORDERLESS mode (not exclusive fullscreen)!"),
-        "dash_steuerung", Map("DE", "⌨ Shift+P=Start | Shift+O=Pause | Shift+L=Sync | Shift+V=Warenlager verkauft | Shift+H=Dashboard ein-/ausblenden | Shift+B=Boni neu laden | Shift+U=Update prüfen", "EN", "⌨ Shift+P=Start | Shift+O=Pause | Shift+L=Sync | Shift+V=Warehouse sold | Shift+H=Show/hide dashboard | Shift+B=Reload bonuses | Shift+U=Check update"),
+        "dash_steuerung", Map("DE", "⌨ Shift+P=Start | Shift+O=Pause | Shift+L=Sync | Shift+V=Warenlager verkauft | Shift+H=Dashboard ein-/ausblenden | Shift+B=Boni neu laden | Shift+U=Update prüfen | Shift+2=2x-Speed Fracht", "EN", "⌨ Shift+P=Start | Shift+O=Pause | Shift+L=Sync | Shift+V=Warehouse sold | Shift+H=Show/hide dashboard | Shift+B=Reload bonuses | Shift+U=Check update | Shift+2=2x-Speed Cargo"),
         "karte_gewinn", Map("DE", "💰 GESAMTGEWINN", "EN", "💰 TOTAL PROFIT"),
         "karte_status", Map("DE", "📡 STATUS", "EN", "📡 STATUS"),
         "karte_finanzen", Map("DE", "📊 FINANZEN", "EN", "📊 FINANCES"),
@@ -813,6 +938,9 @@ T(Key) {
         "autoshutdown_frage", Map("DE", "Nach wie vielen Runden soll der PC automatisch heruntergefahren werden?`n(0 oder leer = nie automatisch herunterfahren)", "EN", "After how many rounds should the PC shut down automatically?`n(0 or empty = never shut down automatically)"),
         "autoshutdown_deaktiviert_live", Map("DE", "= Auto-Shutdown deaktiviert", "EN", "= Auto-shutdown disabled"),
         "autoshutdown_voraussichtlich", Map("DE", "= voraussichtl. {1}Std {2}Min Gesamt-AFK-Zeit   →   Shutdown ca. um {3} Uhr", "EN", "= estimated {1}h {2}m total AFK time   →   Shutdown at approx. {3}"),
+        "intervall_titel", Map("DE", "⏱️ Rundenintervall", "EN", "⏱️ Round interval"),
+        "intervall_frage", Map("DE", "Wie viele Minuten zwischen den Runden warten?`n(Standard: 48 Min. Bei 2x-Speed-Events z.B. auf Fracht: 24 Min.)", "EN", "How many minutes to wait between rounds?`n(Default: 48 min. During 2x speed events e.g. on cargo: 24 min.)"),
+        "intervall_aktuell", Map("DE", "= aktuell eingestellt: {1} Min. pro Runde", "EN", "= currently set: {1} min. per round"),
         "werte_bestaetigen_titel", Map("DE", "Werte bestätigen", "EN", "Confirm values"),
         "werte_bestaetigen_intro", Map("DE", "Bitte prüfen, bevor die Automatisierung startet:", "EN", "Please check before the automation starts:"),
         "farbauswahl_titel", Map("DE", "🎨 Akzentfarbe wählen", "EN", "🎨 Choose accent color"),
@@ -828,6 +956,11 @@ T(Key) {
         "update_gefunden_frage", Map("DE", "Version {1} ist verfügbar (du hast {2}).`n`nJetzt herunterladen und installieren? Das Skript startet danach automatisch neu.", "EN", "Version {1} is available (you have {2}).`n`nDownload and install now? The script will restart automatically afterwards."),
         "update_wird_installiert", Map("DE", "Update wird installiert, Skript startet neu...", "EN", "Installing update, script is restarting..."),
         "update_hinweis_kurz", Map("DE", "   |   🔄 Update {1} verfügbar! Shift+U zum Installieren", "EN", "   |   🔄 Update {1} available! Shift+U to install"),
+        "sonderfracht_hinweis_kurz", Map("DE", "   |   ⚡ 2x-Speed AN (alle 24 Min.)", "EN", "   |   ⚡ 2x-Speed ON (every 24 min.)"),
+        "sonderfracht_schnell_laeuft", Map("DE", "⚡ 2x-SPEED: Sonderfracht wird abgeholt...", "EN", "⚡ 2x SPEED: Collecting special cargo..."),
+        "sonderfracht_schnell_aktiviert", Map("DE", "⚡ 2x-Speed AKTIVIERT - Sonderfracht wird jetzt alle 24 Min. abgeholt (normale Runde läuft weiterhin alle 48 Min.)", "EN", "⚡ 2x-Speed ENABLED - special cargo now collected every 24 min. (normal round still runs every 48 min.)"),
+        "sonderfracht_schnell_deaktiviert", Map("DE", "2x-Speed deaktiviert - zurück zum normalen 48-Min-Rhythmus", "EN", "2x-Speed disabled - back to the normal 48 min. rhythm"),
+        "sonderfracht_schnell_kein_lager", Map("DE", "Kein Sonderfracht-Lagerhaus besessen - 2x-Speed nicht nötig", "EN", "No special cargo warehouse owned - 2x speed not needed"),
         "update_fehler", Map("DE", "Update-Prüfung fehlgeschlagen: {1}", "EN", "Update check failed: {1}"),
         "update_aktuell", Map("DE", "Du hast bereits die neueste Version ({1}).", "EN", "You already have the latest version ({1})."),
         "update_nicht_konfiguriert", Map("DE", "Auto-Update ist nicht eingerichtet (siehe Kommentar am Skriptanfang).", "EN", "Auto-update isn't set up yet (see comment at the top of the script)."),
@@ -959,14 +1092,19 @@ WaehleFlavorText() {
 ; .ahk-Datei überschrieben und das Skript automatisch neu gestartet.
 ; =========================================================================
 
-; Vergleicht zwei Versionsnummern wie "4.6" vs "4.10" NUMERISCH (nicht als
-; Text, sonst wäre "4.6" > "4.10"). Gibt true zurück, wenn Neu > Alt.
-; Zeigt (oder entfernt) den dezenten Update-Hinweis in der Steuerungszeile,
-; ohne das restliche Layout zu verschieben. Blinkt rot, solange ein Update
-; verfügbar ist - hört von selbst auf, sobald der Hinweis wieder leer ist.
-AktualisiereUpdateHinweis() {
-    global SteuerungCtrl, UpdateVerfuegbarVersion
-    SteuerungCtrl.Value := T("dash_steuerung") . (UpdateVerfuegbarVersion != "" ? TP("update_hinweis_kurz", UpdateVerfuegbarVersion) : "")
+; Baut die Steuerungszeile neu auf: Basistext + optionaler Update-Hinweis +
+; optionaler 2x-Speed-Hinweis, ohne das restliche Layout zu verschieben.
+; Blinkt rot, solange ein Update verfügbar ist (2x-Speed-Hinweis blinkt
+; bewusst NICHT - der ist ja ein normaler, gewollter Dauerzustand).
+AktualisiereSteuerungszeile() {
+    global SteuerungCtrl, UpdateVerfuegbarVersion, SonderfrachtSchnellModusAktiv
+    Text := T("dash_steuerung")
+    if (UpdateVerfuegbarVersion != "")
+        Text .= TP("update_hinweis_kurz", UpdateVerfuegbarVersion)
+    if SonderfrachtSchnellModusAktiv
+        Text .= T("sonderfracht_hinweis_kurz")
+    SteuerungCtrl.Value := Text
+
     if (UpdateVerfuegbarVersion != "")
         SetTimer(UpdateBlinkTicker, 500)
     else {
@@ -975,8 +1113,14 @@ AktualisiereUpdateHinweis() {
     }
 }
 
+; Alter Funktionsname bleibt als Alias erhalten (wird an mehreren Stellen
+; nach einer Update-Prüfung aufgerufen).
+AktualisiereUpdateHinweis() {
+    AktualisiereSteuerungszeile()
+}
+
 ; Wechselt die Farbe der Steuerungszeile im Sekundentakt zwischen Rot und
-; normalem Grau, solange UpdateBlinkAn läuft (siehe AktualisiereUpdateHinweis).
+; normalem Grau, solange ein Update-Hinweis aktiv ist.
 UpdateBlinkTicker() {
     global SteuerungCtrl
     static Rot := false
@@ -1351,7 +1495,7 @@ ZeigeEingabe(Titel, Frage, Standardwert := "") {
 ; Gesamt-AFK-Zeit live mitgerechnet und angezeigt (0 oder leer = deaktiviert).
 ; =========================================================================
 ZeigeRundenEingabe() {
-    global AkzentFarbe
+    global AkzentFarbe, RundenIntervallMinuten
     Ergebnis := 0
 
     RDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", T("autoshutdown_titel"))
@@ -1378,8 +1522,8 @@ ZeigeRundenEingabe() {
     ; Live-Umrechnung bei jeder Änderung der Eingabe
     Umrechnen(*) {
         Runden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
-        VorausStunden := Floor(Runden * 0.8)
-        VorausMinuten := Round(Mod(Runden * 0.8, 1) * 60)
+        VorausStunden := Floor(Runden * RundenIntervallMinuten / 60)
+        VorausMinuten := Mod(Runden * RundenIntervallMinuten, 60)
         ShutdownUhrzeit := FormatTime(DateAdd(A_Now, Runden * 48, "Minutes"), "HH:mm")
         ZeitAnzeige.Value := (Runden > 0) ? TPn("autoshutdown_voraussichtlich", VorausStunden, VorausMinuten, ShutdownUhrzeit) : T("autoshutdown_deaktiviert_live")
     }
@@ -1689,6 +1833,34 @@ UnternehmenSetup() {
 ; =========================================================================
 +u::PrüfeAufUpdate(true)
 
+; =========================================================================
+; ⚡ Shift+2: "2x Speed CEO Fracht" ein-/ausschalten - auf Knopfdruck, für
+; Event-Wochen mit doppelter Fracht-Geschwindigkeit. Ändert NUR das Intervall
+; fürs Abholen der Sonderfracht-Lagerhäuser auf 24 Min. (siehe Sonderfracht-
+; Schnelldurchlauf), der normale 48-Min-Rundenablauf läuft unverändert weiter.
+; =========================================================================
++2::
+{
+    global SonderfrachtSchnellModusAktiv, BesitztLagerhaus
+
+    if !BesitztLagerhaus {
+        UpdateDashboard(T("sonderfracht_schnell_kein_lager"))
+        return
+    }
+
+    SonderfrachtSchnellModusAktiv := !SonderfrachtSchnellModusAktiv
+    if SonderfrachtSchnellModusAktiv {
+        SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
+        UpdateDashboard(T("sonderfracht_schnell_aktiviert"))
+    } else {
+        SetTimer(SonderfrachtSchnelldurchlauf, 0)
+        UpdateDashboard(T("sonderfracht_schnell_deaktiviert"))
+    }
+    AktualisiereSteuerungszeile()
+    SpeichereKistenstand()
+    BestaetigungsBlitz()
+}
+
 ; Zeigt EventBoniListe/EventBoniFehler in den Dashboard-Controls an.
 AktualisiereEventBoniAnzeige() {
     global EventBoniListe, EventBoniLetzteAktualisierung, EventBoniFehler, EventBoniQuelleUrl
@@ -1747,7 +1919,7 @@ SpielstandSync() {
 }
 
 StartAutomation() {
-    global InfoGui, StartZeit, AutomationAktiv, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, ZielZeit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, KistenDateiPfad, ZielRundenAnzahl, WarenbestandBekannt
+    global InfoGui, StartZeit, AutomationAktiv, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, ZielZeit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, KistenDateiPfad, ZielRundenAnzahl, WarenbestandBekannt, RundenIntervallMinuten
 
     ; FIX: Unternehmens-Setup nur noch abfragen, wenn nötig - beim allerersten
     ; Start überhaupt (keine gespeicherte Datei), oder wenn du auf die kurze
@@ -1798,8 +1970,8 @@ StartAutomation() {
         }
 
         ; FIX: Wahlmöglichkeit - sofort mit dem Einkauf starten, oder erst
-        ; die 48-Minuten-Wartezeit abwarten (z.B. weil gerade erst frisch
-        ; eingekauft wurde und noch nichts abzuholen ist).
+        ; die Wartezeit abwarten (z.B. weil gerade erst frisch eingekauft
+        ; wurde und noch nichts abzuholen ist).
         StartWahl := ZeigeFrage(T("startmodus_titel"), T("startmodus_frage"), 4)
 
         ; FIX: Optionales automatisches Herunterfahren nach X Runden - mit
@@ -1814,9 +1986,9 @@ StartAutomation() {
             ; FIX: Timer direkt auf 48 Min setzen, OHNE AusfuehrenKombi()
             ; aufzurufen - dadurch werden auch keine Kisten/Einnahmen/
             ; Kosten für diese "leere" Runde addiert.
-            ZielZeit := A_TickCount + 2880000
+            ZielZeit := A_TickCount + (RundenIntervallMinuten * 60000)
             WaehleFlavorText()
-            SetTimer(HauptLoop, -2880000)
+            SetTimer(HauptLoop, -(RundenIntervallMinuten * 60000))
             SetTimer(CountdownTicker, 1000)
             SetTimer(AntiAFK, 8000)
             UpdateDashboard(T("cooldown_laeuft"))
@@ -1856,67 +2028,44 @@ DrückeTaste(Taste) {
     SendEvent("{" Taste " down}"), Sleep(200), SendEvent("{" Taste " up}")
 }
 
-AusfuehrenKombi() {
-    global RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, KostenProLagerhaus, KostenHangar, SpielhalleEinnahmen, AgenturEinnahmen, SchrotthandelEinnahmen, TextilfabrikEinnahmen, WaschanlageEinnahmen, MinWarenProRunde, MaxWarenProRunde, MinKautionProRunde, MaxKautionProRunde, ZielZeit, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, NachtclubBeliebtheit, TotalNachtclubEinnahmen, AutomationAktiv, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, GTAFensterTitel, ZielRundenAnzahl, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, AutomatisierungBeschaeftigt
+; =========================================================================
+; 🔁 GETEILTE DISPATCH-ENGINE: Führt eine beliebige Aktionen-Liste aus -
+; genutzt sowohl vom vollen 48-Min-Rundenablauf (AusfuehrenKombi) als auch
+; vom optionalen 24-Min-Sonderfracht-Schnelldurchlauf (SonderfrachtSchnell-
+; durchlauf). So bleibt die Logik (Fenster aktivieren, Pause-Prüfung,
+; Kisten-Tracking) an nur einer Stelle gepflegt.
+; Rückgabe: Map mit "status" ("erfolg"/"pausiert"/"fenster_fehlt") und
+; "vorheriges" (Fenstertitel, das vor dem Start aktiv war).
+; =========================================================================
+FuehreListeAus(Aktionen, StatusLaeuftText) {
+    global AutomationAktiv, AutomatisierungBeschaeftigt, GTAFensterTitel
+    global AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar
 
-    ; FIX: Solange Tasten aktiv gesendet werden, darf die automatische
-    ; Update-Prüfung NICHT dazwischenfunken (Dialog/Netzwerkaufruf würde die
-    ; laufende Runde stören). Wird am Ende der Runde wieder freigegeben.
     AutomatisierungBeschaeftigt := true
 
-    SetTimer(AntiAFK, 0)
-    SetTimer(CountdownTicker, 0)
-
-    ; FIX: GTA automatisch in den Vordergrund holen, bevor Tasten gesendet
-    ; werden - so kannst du währenddessen frei am PC andere Dinge tun.
-    ; Merkt sich, welches Fenster vorher aktiv war, um es danach wieder
-    ; herzustellen. Ist GTA nicht auffindbar, wird die Runde kurz verschoben
-    ; statt Tasten ins Leere (oder ein falsches Fenster) zu senden.
     VorherigesFenster := WinExist("A") ? WinGetTitle("A") : ""
     if !WinExist(GTAFensterTitel) {
         UpdateDashboard(T("gta_fenster_nicht_gefunden"))
-        SetTimer(CountdownTicker, 1000)
-        SetTimer(AntiAFK, 8000)
-        SetTimer(AusfuehrenKombi, -10000)
         AutomatisierungBeschaeftigt := false
-        return
+        return Map("status", "fenster_fehlt", "vorheriges", VorherigesFenster)
     }
     WinActivate(GTAFensterTitel)
     if !WinWaitActive(GTAFensterTitel, , 5) {
         UpdateDashboard(T("gta_fenster_nicht_aktiviert"))
-        SetTimer(CountdownTicker, 1000)
-        SetTimer(AntiAFK, 8000)
-        SetTimer(AusfuehrenKombi, -10000)
         AutomatisierungBeschaeftigt := false
-        return
+        return Map("status", "fenster_fehlt", "vorheriges", VorherigesFenster)
     }
 
-    ; FIX: Erst die "ausstehenden" Kisten aus der VORHERIGEN Runde jetzt dem
-    ; sichtbaren Lagerbestand zuschlagen (die sind jetzt fertig produziert) -
-    ; danach auf 0 zurücksetzen, damit diese Runde neu gesammelt wird.
-    KistenLager1 := Min(KistenLager1 + AusstehendLager1, MaxKistenLager1)
-    KistenLager2 := Min(KistenLager2 + AusstehendLager2, MaxKistenLager2)
-    KistenLager3 := Min(KistenLager3 + AusstehendLager3, MaxKistenLager3)
-    KistenLager4 := Min(KistenLager4 + AusstehendLager4, MaxKistenLager4)
-    KistenLager5 := Min(KistenLager5 + AusstehendLager5, MaxKistenLager5)
-    KistenHangar := Min(KistenHangar + AusstehendHangar, MaxKistenHangar)
-    AusstehendLager1 := 0, AusstehendLager2 := 0, AusstehendLager3 := 0
-    AusstehendLager4 := 0, AusstehendLager5 := 0, AusstehendHangar := 0
-
-    UpdateDashboard(T("einkauf_laeuft"))
+    UpdateDashboard(StatusLaeuftText)
     Sleep(1000)
 
-    Aktionen := KombinationsListe()
     for Index, Element in Aktionen {
-        ; FIX: Pause-Status VOR jeder einzelnen Aktion prüfen -> Shift+O
-        ; bricht die Runde jetzt sofort ab, statt sie zu Ende laufen zu
-        ; lassen und sich am Ende ungefragt wieder selbst zu starten.
         if !AutomationAktiv {
             UpdateDashboard(T("automatisierung_pausiert_runde_abgebrochen"))
             if (VorherigesFenster != "" && WinExist(VorherigesFenster))
                 WinActivate(VorherigesFenster)
             AutomatisierungBeschaeftigt := false
-            return
+            return Map("status", "pausiert", "vorheriges", VorherigesFenster)
         }
 
         Taste := Element[1]
@@ -1926,17 +2075,9 @@ AusfuehrenKombi() {
 
         if (Taste = "Oben") {
             DrückeMenüTaste("Up")
-            ; FIX: Extra Pause nach Navigation - direkt nach einer Abholung
-            ; braucht das Menü manchmal einen Moment, bis es die Bewegung
-            ; überhaupt registriert (sonst trifft der nächste Enter noch
-            ; den alten Eintrag statt des neuen).
             Sleep(1000)
         } else if (Taste = "Unten") {
             DrückeMenüTaste("Down")
-            ; FIX: Volle Pause nur, wenn direkt danach ein Enter kommt
-            ; (kritischer Übergang vor einer Abholung/Aktion). Beim reinen
-            ; Durchskippen nicht besessener Kategorien (Unten gefolgt von
-            ; Unten oder Zurück) reicht eine kurze Pause - spart Zeit pro Runde.
             NaechsteTaste := (Index < Aktionen.Length) ? Aktionen[Index + 1][1] : ""
             if (NaechsteTaste = "Enter" || NaechsteTaste = "Enter1")
                 Sleep(1000)
@@ -1947,9 +2088,6 @@ AusfuehrenKombi() {
             DrückeMenüTaste("Right")
         else if (Taste = "Enter") {
             DrückeTaste("Enter"), Sleep(2000), DrückeTaste("Enter")
-            ; FIX: Zusätzliche Pause, da die Transaktion (Einnahmen abholen,
-            ; Mitarbeiter/Agenten losschicken) manchmal erst verarbeitet
-            ; werden muss, bevor der nächste Schritt sicher klappt.
             Sleep(2000)
         } else if (Taste = "Enter1") {
             DrückeTaste("Enter")
@@ -1957,11 +2095,6 @@ AusfuehrenKombi() {
         } else if (Taste = "Zurück")
             DrückeTaste("Backspace")
 
-        ; FIX: Kisten-Tracking - genau wie beim Warenwert gilt: Die Fracht,
-        ; die DIESE Runde losgeschickt wird, ist erst NACH 48 Min. fertig und
-        ; kommt erst in der übernächsten Ausführung (= nächste Runde) im
-        ; Lagerbestand an. Deshalb erst als "ausstehend" sammeln, nicht
-        ; sofort dem sichtbaren Kistenstand zuschlagen.
         if (Element.Length >= 3) {
             LagerTag := Element[3]
             GelieferteKisten := Random(1, 3)
@@ -1982,15 +2115,48 @@ AusfuehrenKombi() {
         Sleep(1000)
     }
 
-    ; FIX: Falls genau zwischen letzter Aktion und Rundenabschluss pausiert
-    ; wurde, hier ebenfalls abbrechen - keine Timer neu setzen.
-    if !AutomationAktiv {
-        UpdateDashboard(T("automatisierung_pausiert"))
-        if (VorherigesFenster != "" && WinExist(VorherigesFenster))
-            WinActivate(VorherigesFenster)
-        AutomatisierungBeschaeftigt := false
+    AutomatisierungBeschaeftigt := false
+    return Map("status", "erfolg", "vorheriges", VorherigesFenster)
+}
+
+AusfuehrenKombi() {
+    global RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, KostenProLagerhaus, KostenHangar, SpielhalleEinnahmen, AgenturEinnahmen, SchrotthandelEinnahmen, TextilfabrikEinnahmen, WaschanlageEinnahmen, MinWarenProRunde, MaxWarenProRunde, MinKautionProRunde, MaxKautionProRunde, ZielZeit, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, NachtclubBeliebtheit, TotalNachtclubEinnahmen, AutomationAktiv, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, GTAFensterTitel, ZielRundenAnzahl, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, AutomatisierungBeschaeftigt, RundenIntervallMinuten
+
+    ; FIX: Falls der Sonderfracht-Schnelldurchlauf (2x-Speed) genau jetzt
+    ; aktiv Tasten sendet, kurz warten und in 1 Min. erneut versuchen -
+    ; niemals gleichzeitig Tasten aus zwei Quellen senden.
+    if AutomatisierungBeschaeftigt {
+        SetTimer(AusfuehrenKombi, -60000)
         return
     }
+
+    SetTimer(AntiAFK, 0)
+    SetTimer(CountdownTicker, 0)
+
+    ; FIX: Erst die "ausstehenden" Kisten aus der VORHERIGEN Runde jetzt dem
+    ; sichtbaren Lagerbestand zuschlagen (die sind jetzt fertig produziert) -
+    ; danach auf 0 zurücksetzen, damit diese Runde neu gesammelt wird.
+    KistenLager1 := Min(KistenLager1 + AusstehendLager1, MaxKistenLager1)
+    KistenLager2 := Min(KistenLager2 + AusstehendLager2, MaxKistenLager2)
+    KistenLager3 := Min(KistenLager3 + AusstehendLager3, MaxKistenLager3)
+    KistenLager4 := Min(KistenLager4 + AusstehendLager4, MaxKistenLager4)
+    KistenLager5 := Min(KistenLager5 + AusstehendLager5, MaxKistenLager5)
+    KistenHangar := Min(KistenHangar + AusstehendHangar, MaxKistenHangar)
+    AusstehendLager1 := 0, AusstehendLager2 := 0, AusstehendLager3 := 0
+    AusstehendLager4 := 0, AusstehendLager5 := 0, AusstehendHangar := 0
+
+    Ergebnis := FuehreListeAus(KombinationsListe(), T("einkauf_laeuft"))
+
+    if (Ergebnis["status"] = "fenster_fehlt") {
+        SetTimer(CountdownTicker, 1000)
+        SetTimer(AntiAFK, 8000)
+        SetTimer(AusfuehrenKombi, -10000)
+        return
+    }
+    if (Ergebnis["status"] = "pausiert")
+        return
+
+    VorherigesFenster := Ergebnis["vorheriges"]
 
     ; Werte nach erfolgreicher Runde hochrechnen
     RundenZaehler++
@@ -2052,9 +2218,9 @@ AusfuehrenKombi() {
     ; FIX: AFK-Phase beginnt genau JETZT (nach der Klick-Sequenz) ->
     ; Ziel- und Timer-Zeit erst hier auf +48 Min setzen, nicht schon vor der
     ; Sequenz. So startet der Countdown immer exakt bei 48:00.
-    ZielZeit := A_TickCount + 2880000
+    ZielZeit := A_TickCount + (RundenIntervallMinuten * 60000)
     WaehleFlavorText()
-    SetTimer(HauptLoop, -2880000)
+    SetTimer(HauptLoop, -(RundenIntervallMinuten * 60000))
     SetTimer(CountdownTicker, 1000)
     SetTimer(AntiAFK, 8000)
 
@@ -2070,7 +2236,7 @@ AusfuehrenKombi() {
 }
 
 UpdateDashboard(StatusText) {
-    global StatusCtrl, InfoGui, StartZeit, RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, MinKautionProRunde, MaxKautionProRunde, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, PreisProKisteHangar, NachtclubBeliebtheit, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, VolleLobbyBonus, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, ZielRundenAnzahl, ZielZeit, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, WarenbestandBekannt, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit, NachtclubWarenlagerRateMitUpgrade, NachtclubWarenlagerRateOhneUpgrade, NachtclubWarenlagerMaxWert
+    global StatusCtrl, InfoGui, StartZeit, RundenZaehler, TotalKosten, TotalSafeEinnahmen, TotalWarenMin, TotalWarenMax, TotalKautionMin, TotalKautionMax, MinKautionProRunde, MaxKautionProRunde, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, KistenHangar, MaxKistenHangar, PreisProKisteHangar, NachtclubBeliebtheit, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, VolleLobbyBonus, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, ZielRundenAnzahl, ZielZeit, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, WarenbestandBekannt, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit, NachtclubWarenlagerRateMitUpgrade, NachtclubWarenlagerRateOhneUpgrade, NachtclubWarenlagerMaxWert, RundenIntervallMinuten
     global ProfitGrossCtrl, ProfitDetailCtrl, CountdownBarCtrl, CountdownTextCtrl, ShutdownInfoCtrl, RundeCtrl, AfkZeitCtrl, KostenCtrl, EinnahmenCtrl, WarenwertCtrl
     global NachtclubBox, NCBarCtrl, NCPercentCtrl
     global WarenlagerBox, WarenlagerBarCtrl, WarenlagerPercentCtrl, WarenlagerInfoCtrl
@@ -2118,12 +2284,13 @@ UpdateDashboard(StatusText) {
         StatusCtrl.SetFont("c00CCFF")
     StatusCtrl.Value := "STATUS: " . StatusText
 
-    ; Countdown-Fortschrittsbalken: Anteil der 48 Min., der bereits um ist
+    ; Countdown-Fortschrittsbalken: Anteil des Rundenintervalls, der bereits um ist
     if (IsSet(ZielZeit) && ZielZeit > 0) {
+        IntervallMs := RundenIntervallMinuten * 60000
         RestMs := ZielZeit - A_TickCount
         if (RestMs < 0)
             RestMs := 0
-        Fortschritt := Round((2880000 - RestMs) / 2880000 * 100)
+        Fortschritt := Round((IntervallMs - RestMs) / IntervallMs * 100)
         if (Fortschritt > 100)
             Fortschritt := 100
         RestSek := Floor(RestMs / 1000)
@@ -2146,8 +2313,8 @@ UpdateDashboard(StatusText) {
     ; daraus resultierende voraussichtliche Gesamt-AFK-Zeit + die ungefähre
     ; tatsächliche Uhrzeit, zu der das passieren wird.
     if (ZielRundenAnzahl > 0) {
-        VorausStunden := Floor(ZielRundenAnzahl * 0.8)
-        VorausMinuten := Round(Mod(ZielRundenAnzahl * 0.8, 1) * 60)
+        VorausStunden := Floor(ZielRundenAnzahl * RundenIntervallMinuten / 60)
+        VorausMinuten := Mod(ZielRundenAnzahl * RundenIntervallMinuten, 60)
         GesamtAFKMinuten := ZielRundenAnzahl * 48
         VergangeneMinutenSeitStart := (StartZeit != 0) ? (A_TickCount - StartZeit) / 60000 : 0
         RestMinuten := Max(0, GesamtAFKMinuten - VergangeneMinutenSeitStart)
@@ -2435,7 +2602,10 @@ BeliebtheitZuEinnahmen(Beliebtheit) {
 
 ; Lädt den Kistenstand + Nachtclub-Beliebtheit + Unternehmens-Besitz aus der INI-Datei
 LadeKistenstand() {
-    global KistenDateiPfad, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit
+    global KistenDateiPfad, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit, RundenIntervallMinuten, SonderfrachtSchnellModusAktiv
+    SonderfrachtSchnellModusAktiv := Integer(IniRead(KistenDateiPfad, "Einstellungen", "SonderfrachtSchnellModus", 0))
+    if SonderfrachtSchnellModusAktiv
+        SetTimer(SonderfrachtSchnelldurchlauf, -(24 * 60000))
     KistenLager1 := Integer(IniRead(KistenDateiPfad, "Lagerstand", "Lager1", 0))
     KistenLager2 := Integer(IniRead(KistenDateiPfad, "Lagerstand", "Lager2", 0))
     KistenLager3 := Integer(IniRead(KistenDateiPfad, "Lagerstand", "Lager3", 0))
@@ -2480,7 +2650,8 @@ LadeKistenstand() {
 
 ; Schreibt den aktuellen Kistenstand + Nachtclub-Beliebtheit + Unternehmens-Besitz in die INI-Datei
 SpeichereKistenstand() {
-    global KistenDateiPfad, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit
+    global KistenDateiPfad, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5, PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5, AusstehendLager1, AusstehendLager2, AusstehendLager3, AusstehendLager4, AusstehendLager5, AusstehendHangar, BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit, RundenIntervallMinuten, SonderfrachtSchnellModusAktiv
+    IniWrite(SonderfrachtSchnellModusAktiv, KistenDateiPfad, "Einstellungen", "SonderfrachtSchnellModus")
     IniWrite(KistenLager1, KistenDateiPfad, "Lagerstand", "Lager1")
     IniWrite(KistenLager2, KistenDateiPfad, "Lagerstand", "Lager2")
     IniWrite(KistenLager3, KistenDateiPfad, "Lagerstand", "Lager3")
