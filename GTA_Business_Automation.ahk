@@ -1,8 +1,8 @@
 #Requires AutoHotkey v2.0
 SetTitleMatchMode(2)  ; "Titel enthält" statt exakter Übereinstimmung
 
-global Sprache := "DE"  ; wird ganz am Anfang per ZeigeSprachauswahl() gesetzt
-global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() gesetzt
+global Sprache := "DE"  ; wird ganz am Anfang per ZeigeKomplettSetup() gesetzt
+global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeKomplettSetup() gesetzt
 
 ; =========================================================================
 ; 🔄 AUTO-UPDATE (optional, standardmäßig aus).
@@ -42,7 +42,7 @@ global AkzentFarbe := "00E5FF"  ; wird ganz am Anfang per ZeigeFarbauswahl() ges
 ; angeboten.
 ; =========================================================================
 global AutoUpdateAktiviert := true
-global AktuelleVersion := "5.6"
+global AktuelleVersion := "6.0"
 global UpdateVersionsUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/version.txt"
 global UpdateDateiUrl := "https://raw.githubusercontent.com/itsmeenzyy/gta-business-automation/main/GTA_Business_Automation.ahk"
 
@@ -431,9 +431,20 @@ global EventBoniLetzteAktualisierung := ""
 global EventBoniFehler := ""
 global EventBoniQuelleUrl := "https://www.gtabase.com/gta-online/weekly-update-bonuses-discounts"
 
-; FIX: Sprachauswahl GANZ am Anfang, bevor irgendetwas anderes erstellt wird.
-ZeigeSprachauswahl()
-ZeigeFarbauswahl()
+; FIX: MUSS vor LadeKistenstand() stehen, sonst würde die spätere
+; Deklaration den von dort geladenen 2x-Speed-Zustand direkt wieder
+; überschreiben (Zuweisungen in der Auto-Ausführungs-Reihenfolge gewinnen).
+global SonderfrachtSchnellModusAktiv := false  ; 2x-Speed: Sonderfracht alle 24 statt 48 Min. abholen
+
+; FIX: Erst den zuletzt gespeicherten Stand laden (Unternehmen, Lager,
+; 2x-Speed-Zustand etc.), DANACH das Komplett-Setup zeigen - so ist alles
+; von Anfang an mit dem letzten Stand vorausgewählt, statt immer wieder bei
+; Null anzufangen.
+LadeKistenstand()
+
+; FIX: EIN einziges Setup-Fenster ganz am Anfang statt vieler Fenster
+; nacheinander (Sprache, Farbe, Unternehmen, Auto-Shutdown - alles in einem).
+ZeigeKomplettSetup()
 
 ; FIX: WS_EX_TRANSPARENT (0x20) allein reicht oft nicht - erst zusammen mit
 ; WS_EX_LAYERED (0x80000) wird das Fenster wirklich komplett klickdurchlässig,
@@ -455,7 +466,7 @@ CursorY := 8
 InfoGui.SetFont("s12 Bold", "Consolas")
 global TitelCtrl := InfoGui.Add("Text", "cFFFFFF x" . KartenX . " y" . CursorY, T("dash_titel"))
 InfoGui.SetFont("s8 Bold", "Consolas")
-global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v5.6")
+global BrandingCtrl := InfoGui.Add("Text", "c00E5FF x" . (KartenX + 300) . " y" . (CursorY + 4), "by Enzyy — v6.0")
 
 ; 🕐 Digitale Live-Uhr oben rechts (LED-Stil, tickt unabhängig von der
 ; Automatisierung jede Sekunde).
@@ -611,14 +622,15 @@ InfoGui.Show("AutoSize xCenter y20 NoActivate")
 WinSetTransparent(0, "ahk_id " . InfoGui.Hwnd)
 FadeUebergang(0, 255)
 
-; Gespeicherten Kistenstand aus der letzten Session laden
-LadeKistenstand()
-AktualisiereSteuerungszeile()
-
 global DashboardSichtbar := true
 global AutomatisierungBeschaeftigt := false
 global UpdateVerfuegbarVersion := ""
-global SonderfrachtSchnellModusAktiv := false  ; 2x-Speed: Sonderfracht alle 24 statt 48 Min. abholen
+
+; Steuerungszeile mit dem im Setup-Fenster festgelegten Zustand aktualisieren
+; (Kistenstand wurde schon ganz am Anfang vor dem Setup-Fenster geladen).
+; FIX: Erst NACH den obigen Variablen-Initialisierungen aufrufen, sonst
+; "nicht zugewiesen"-Fehler beim Lesen von UpdateVerfuegbarVersion.
+AktualisiereSteuerungszeile()
 
 ; FIX: Direkt einmal aktualisieren (nicht erst beim ersten Shift+P) - sonst
 ; bleiben Karten (z.B. Spezialfracht & Hangar), die erst durch UpdateDashboard()
@@ -780,106 +792,258 @@ DashboardUmschalten() {
 ; teilweise hinter dem Spiel/Skript-Fenster gespawnt sind.
 ; =========================================================================
 ; =========================================================================
-; 🌐 SPRACHAUSWAHL: erscheint EINMALIG ganz am Anfang, bevor irgendetwas
-; anderes passiert. Übersetzt Dashboard + alle Setup-/Abfrage-Fenster.
+; 🏁 KOMPLETT-SETUP: EIN einziges Fenster für Sprache, Akzentfarbe,
+; Unternehmen, Sonderfracht-Lagerhäuser, Nachtclub-Warenlager UND Auto-
+; Shutdown-Rundenanzahl - ersetzt die früheren 4 separaten Fenster
+; (Sprachauswahl, Farbauswahl, Unternehmens-Setup, Runden-Eingabe), die
+; nacheinander aufploppten. Ändert sich Sprache oder Farbe, wird das
+; Fenster einmal neu aufgebaut (kurzes Aufblitzen), damit der Rest des
+; Textes sofort in der neuen Sprache/Farbe erscheint - alle bereits
+; getroffenen Auswahlen bleiben dabei erhalten.
 ; =========================================================================
-ZeigeSprachauswahl() {
-    global Sprache
+ZeigeKomplettSetup() {
+    global Sprache, AkzentFarbe
+    global BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar
+    global BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, BesitztLagerhaus
+    global MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5
+    global PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5
+    global BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit
+    global ZielRundenAnzahl, RundenIntervallMinuten
 
-    LDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", "Language / Sprache")
-    LDlg.BackColor := "111111"
-    LDlg.MarginX := 28
-    LDlg.MarginY := 24
-
-    LDlg.SetFont("s14 Bold", "Consolas")
-    LDlg.Add("Text", "cFFFFFF w440", "🌐 Sprache wählen / Choose language")
-    LDlg.Add("Progress", "w440 h4 c00E5FF Background1A1A1A -Smooth y+8", 100)
-
-    LDlg.SetFont("s13 Bold", "Consolas")
-    BtnDE := LDlg.Add("Button", "w210 h50 Default y+18", "🇩🇪  Deutsch")
-    BtnEN := LDlg.Add("Button", "x+20 w210 h50", "🇬🇧  English")
-
-    DeutschKlick(*) {
-        Sprache := "DE"
-        LDlg.Destroy()
-    }
-    EnglischKlick(*) {
-        Sprache := "EN"
-        LDlg.Destroy()
+    ; FIX: Aktuelle Lager-Größe (1-4) aus den bereits geladenen Max-Werten
+    ; ableiten, damit das Dropdown beim Neu-Aufbau (oder bei wiederholtem
+    ; Start) den zuletzt gewählten Zustand vorausgewählt zeigt statt immer
+    ; bei "Nicht vorhanden" zu starten.
+    LagerIndexAusMax(Besitzt, Max) {
+        if !Besitzt
+            return 1
+        if (Max = 16)
+            return 2
+        if (Max = 42)
+            return 3
+        return 4
     }
 
-    BtnDE.OnEvent("Click", DeutschKlick)
-    BtnEN.OnEvent("Click", EnglischKlick)
-    LDlg.OnEvent("Close", DeutschKlick)
-    LDlg.OnEvent("Escape", DeutschKlick)
-
-    LDlg.Show("AutoSize xCenter yCenter")
-    WinWaitClose("ahk_id " . LDlg.Hwnd)
-}
-
-; =========================================================================
-; 🎨 FARBAUSWAHL: erscheint EINMALIG direkt nach der Sprachauswahl. Legt die
-; Akzentfarbe für das gesamte Dashboard + alle Fenster fest (Rahmen, Titel,
-; Akzentbalken). Standard bleibt Neon-Blau, falls nichts gewählt wird.
-; =========================================================================
-ZeigeFarbauswahl() {
-    global AkzentFarbe, Sprache
-
-    Farben := [
-        ["00E5FF", (Sprache = "DE") ? "Neon-Blau" : "Neon Blue"],
-        ["00FF88", (Sprache = "DE") ? "Grün" : "Green"],
-        ["FF00CC", (Sprache = "DE") ? "Pink" : "Pink"],
-        ["FF7700", (Sprache = "DE") ? "Orange" : "Orange"],
-        ["FF3333", (Sprache = "DE") ? "Rot" : "Red"],
-        ["B366FF", (Sprache = "DE") ? "Lila" : "Purple"],
-        ["FFEE00", (Sprache = "DE") ? "Gelb" : "Yellow"],
-        ["FFFFFF", (Sprache = "DE") ? "Weiß" : "White"]
-    ]
-
-    CDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", T("farbauswahl_titel"))
-    CDlg.BackColor := "111111"
-    CDlg.MarginX := 28
-    CDlg.MarginY := 24
-
-    InhaltX := 28
-    InhaltBreite := 460
-    CY := 24
-
-    CDlg.SetFont("s14 Bold", "Consolas")
-    CDlg.Add("Text", "cFFFFFF x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("farbauswahl_titel"))
-    CY += 26
-    CDlg.Add("Progress", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h4 c00E5FF Background1A1A1A -Smooth", 100)
-    CY += 14
-    CDlg.SetFont("s10 Norm", "Consolas")
-    CDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r1", T("farbauswahl_subtitel"))
-    CY += 34
-
-    ; FIX: Buttons ignorieren die Textfarbe (Windows-Theme überschreibt das) -
-    ; deshalb echte farbige, anklickbare Text-Zeilen (SS_NOTIFY) statt Buttons,
-    ; zusätzlich mit einem farbigen Muster-Quadrat davor.
-    ReihenHoehe := 44
-    CDlg.SetFont("s13 Bold", "Consolas")
-    Loop Farben.Length {
-        Eintrag := Farben[A_Index]
-        Hex := Eintrag[1], Name := Eintrag[2]
-        RY := CY + (A_Index - 1) * ReihenHoehe
-
-        CDlg.Add("Progress", "x" . InhaltX . " y" . (RY + 2) . " w28 h28 c" . Hex . " Background" . Hex, 100)
-
-        Zeile := CDlg.Add("Text", "+0x100 c" . Hex . " x" . (InhaltX + 40) . " y" . RY . " w" . (InhaltBreite - 40) . " h32", Name)
-        Zeile.OnEvent("Click", FarbeGewaehlt.Bind(Hex, CDlg))
+    ; Diese Werte überleben einen Neuaufbau (bei Sprach-/Farbwechsel), weil
+    ; sie als "static" deklariert sind - beim ALLERERSTEN Aufruf mit dem
+    ; zuletzt gespeicherten Zustand vorbefüllt (siehe unten).
+    static Init := false
+    static AuswahlBusiness := []
+    static AuswahlLager := []
+    static AuswahlWarenlager := 1
+    static AuswahlAusruestung := 1
+    static AuswahlRunden := 0
+    if !Init {
+        AuswahlBusiness := [BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar]
+        AuswahlBusiness := [BesitztNachtclub?1:2, BesitztSpielhalle?1:2, BesitztAgentur?1:2, BesitztSchrotthandel?1:2, BesitztKautionsbuero?1:2, BesitztTextilfabrik?1:2, BesitztWaschanlage?1:2, BesitztHangar?1:2]
+        AuswahlLager := [LagerIndexAusMax(BesitztLager1, MaxKistenLager1), LagerIndexAusMax(BesitztLager2, MaxKistenLager2), LagerIndexAusMax(BesitztLager3, MaxKistenLager3), LagerIndexAusMax(BesitztLager4, MaxKistenLager4), LagerIndexAusMax(BesitztLager5, MaxKistenLager5)]
+        AuswahlWarenlager := BesitztNachtclubWarenlager ? 1 : 2
+        AuswahlAusruestung := NachtclubAusruestungGekauft ? 1 : 2
+        AuswahlRunden := ZielRundenAnzahl
+        Init := true
     }
 
-    FarbeGewaehlt(Hex, Dlg, *) {
-        AkzentFarbe := Hex
-        Dlg.Destroy()
+    NeuAufbauNoetig := true
+    while NeuAufbauNoetig {
+        NeuAufbauNoetig := false
+
+        JaNein := [T("ja"), T("nein")]
+        LagerOptionen := [T("lager_keins"), T("lager_klein"), T("lager_mittel"), T("lager_gross")]
+        BusinessNamen := (Sprache = "DE")
+            ? ["Nachtclub", "Spielhalle (Arcade)", "Agentur", "Schrotthandel", "Kautionsbüro", "Textilfabrik", "Hands-On-Waschanlage", "Hangar"]
+            : ["Nightclub", "Arcade", "Agency", "Salvage Yard", "Bail Office", "Textile Factory", "Hands-On Car Wash", "Hangar"]
+        Farben := [
+            ["00E5FF", (Sprache = "DE") ? "Neon-Blau" : "Neon Blue"],
+            ["00FF88", (Sprache = "DE") ? "Grün" : "Green"],
+            ["FF00CC", "Pink"],
+            ["FF7700", "Orange"],
+            ["FF3333", (Sprache = "DE") ? "Rot" : "Red"],
+            ["B366FF", (Sprache = "DE") ? "Lila" : "Purple"],
+            ["FFEE00", (Sprache = "DE") ? "Gelb" : "Yellow"],
+            ["FFFFFF", (Sprache = "DE") ? "Weiß" : "White"]
+        ]
+
+        SDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", "GTA Business Automation - Setup")
+        SDlg.BackColor := "111111"
+        SDlg.MarginX := 24
+        SDlg.MarginY := 20
+
+        InhaltX := 24
+        InhaltBreite := 912
+        SpalteLinksX := InhaltX
+        SpalteRechtsX := InhaltX + 470
+        CY := 20
+
+        SDlg.SetFont("s16 Bold", "Consolas")
+        SDlg.Add("Text", "cFFFFFF x" . InhaltX . " y" . CY . " w" . InhaltBreite, "🏁 GTA Business Automation")
+        CY += 30
+        SDlg.Add("Progress", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h4 c" . AkzentFarbe . " Background1A1A1A -Smooth", 100)
+        CY += 20
+
+        ; --- Sprache ---
+        SDlg.SetFont("s10 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . InhaltX . " y" . (CY + 8) . " w110", "🌐 Sprache:")
+        SDlg.SetFont("s10 Norm", "Consolas")
+        BtnDE := SDlg.Add("Button", "x" . (InhaltX + 115) . " y" . CY . " w110 h30" . (Sprache = "DE" ? " Default" : ""), "🇩🇪 Deutsch")
+        BtnEN := SDlg.Add("Button", "x+10 y" . CY . " w110 h30" . (Sprache = "EN" ? " Default" : ""), "🇬🇧 English")
+        CY += 42
+
+        ; --- Akzentfarbe (kompakte Reihe aus 8 farbigen Quadraten) ---
+        SDlg.SetFont("s10 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . InhaltX . " y" . (CY + 8) . " w110", T("farbauswahl_titel"))
+        FarbButtons := []
+        FX := InhaltX + 115
+        for Eintrag in Farben {
+            Hex := Eintrag[1]
+            Swatch := SDlg.Add("Text", "+0x100 x" . FX . " y" . CY . " w28 h28 Background" . Hex, "")
+            if (Hex = AkzentFarbe)
+                SDlg.Add("Text", "x" . FX . " y" . CY . " w28 h28 cFFFFFF Center", "✓")
+            FarbButtons.Push([Swatch, Hex])
+            FX += 36
+        }
+        CY += 44
+
+        ; --- Trennlinie ---
+        SDlg.Add("Text", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h1 0x10")
+        CY += 14
+
+        ; --- Unternehmen + Lagerhäuser (2-Spalten-Grid) ---
+        SDlg.SetFont("s11 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteLinksX . " y" . CY . " w400", T("spalte_unternehmen"))
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteRechtsX . " y" . CY . " w400", T("spalte_lager"))
+        CY += 26
+
+        ReihenStartY := CY
+        ReihenHoehe := 32
+
+        DDBusiness := []
+        SDlg.SetFont("s9 Norm", "Consolas")
+        Loop 8 {
+            RY := ReihenStartY + (A_Index - 1) * ReihenHoehe
+            SDlg.Add("Text", "cDDDDDD x" . SpalteLinksX . " y" . (RY + 4) . " w170", BusinessNamen[A_Index] . ":")
+            DD := SDlg.Add("DropDownList", "x" . (SpalteLinksX + 175) . " y" . RY . " w195 Choose" . AuswahlBusiness[A_Index], JaNein)
+            DDBusiness.Push(DD)
+        }
+
+        DDLager := []
+        Loop 5 {
+            RY := ReihenStartY + (A_Index - 1) * ReihenHoehe
+            SDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w100", T("kisten_lager") . " " . A_Index . ":")
+            DD := SDlg.Add("DropDownList", "x" . (SpalteRechtsX + 105) . " y" . RY . " w345 Choose" . AuswahlLager[A_Index], LagerOptionen)
+            DDLager.Push(DD)
+        }
+
+        ; Nachtclub-Warenlager - 2 Zeilen unter den Lagern
+        RY := ReihenStartY + 5 * ReihenHoehe + 8
+        SDlg.SetFont("s9 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteRechtsX . " y" . RY . " w400", T("warenlager_ueberschrift"))
+        RY += 22
+        SDlg.SetFont("s9 Norm", "Consolas")
+        SDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w340", T("techniker_frage"))
+        DDWarenlager := SDlg.Add("DropDownList", "x" . (SpalteRechtsX + 350) . " y" . RY . " w100 Choose" . AuswahlWarenlager, JaNein)
+        RY += ReihenHoehe
+        SDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w340", T("ausruestung_frage"))
+        DDAusruestung := SDlg.Add("DropDownList", "x" . (SpalteRechtsX + 350) . " y" . RY . " w100 Choose" . AuswahlAusruestung, JaNein)
+
+        CY := ReihenStartY + 8 * ReihenHoehe + 12
+
+        ; --- Trennlinie ---
+        SDlg.Add("Text", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h1 0x10")
+        CY += 14
+
+        ; --- Auto-Shutdown ---
+        SDlg.SetFont("s11 Bold", "Consolas")
+        SDlg.Add("Text", "c" . AkzentFarbe . " x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("autoshutdown_titel"))
+        CY += 24
+        SDlg.SetFont("s9 Norm", "Consolas")
+        SDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r2", T("autoshutdown_frage"))
+        CY += 34
+
+        SDlg.SetFont("s12 Norm", "Consolas")
+        EF := SDlg.Add("Edit", "x" . InhaltX . " y" . CY . " w300 h28 cFFFFFF Background2A2A2A -E0x200", AuswahlRunden)
+        SDlg.SetFont("s10 Bold", "Consolas")
+        ZeitAnzeige := SDlg.Add("Text", "c00FF88 x+15 yp+4 w550 r2", T("autoshutdown_deaktiviert_live"))
+
+        Umrechnen(*) {
+            Runden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
+            VorausStunden := Floor(Runden * RundenIntervallMinuten / 60)
+            VorausMinuten := Mod(Runden * RundenIntervallMinuten, 60)
+            ShutdownUhrzeit := FormatTime(DateAdd(A_Now, Runden * RundenIntervallMinuten, "Minutes"), "HH:mm")
+            ZeitAnzeige.Value := (Runden > 0) ? TPn("autoshutdown_voraussichtlich", VorausStunden, VorausMinuten, ShutdownUhrzeit) : T("autoshutdown_deaktiviert_live")
+        }
+        EF.OnEvent("Change", Umrechnen)
+        Umrechnen()
+        CY += 46
+
+        ; --- Fertig-Button ---
+        SDlg.SetFont("s12 Bold", "Consolas")
+        BtnFertig := SDlg.Add("Button", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h48 Default", "✓  " . T("btn_uebernehmen"))
+
+        ; --- Klick-Handler ---
+        SpracheWechseln(NeueSprache, *) {
+            AuswahlBusiness := [DDBusiness[1].Value, DDBusiness[2].Value, DDBusiness[3].Value, DDBusiness[4].Value, DDBusiness[5].Value, DDBusiness[6].Value, DDBusiness[7].Value, DDBusiness[8].Value]
+            AuswahlLager := [DDLager[1].Value, DDLager[2].Value, DDLager[3].Value, DDLager[4].Value, DDLager[5].Value]
+            AuswahlWarenlager := DDWarenlager.Value
+            AuswahlAusruestung := DDAusruestung.Value
+            AuswahlRunden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
+            Sprache := NeueSprache
+            NeuAufbauNoetig := true
+            SDlg.Destroy()
+        }
+        BtnDE.OnEvent("Click", SpracheWechseln.Bind("DE"))
+        BtnEN.OnEvent("Click", SpracheWechseln.Bind("EN"))
+
+        for Eintrag in FarbButtons {
+            Swatch := Eintrag[1], Hex := Eintrag[2]
+            Swatch.OnEvent("Click", FarbeWechseln.Bind(Hex))
+        }
+        FarbeWechseln(Hex, *) {
+            AuswahlBusiness := [DDBusiness[1].Value, DDBusiness[2].Value, DDBusiness[3].Value, DDBusiness[4].Value, DDBusiness[5].Value, DDBusiness[6].Value, DDBusiness[7].Value, DDBusiness[8].Value]
+            AuswahlLager := [DDLager[1].Value, DDLager[2].Value, DDLager[3].Value, DDLager[4].Value, DDLager[5].Value]
+            AuswahlWarenlager := DDWarenlager.Value
+            AuswahlAusruestung := DDAusruestung.Value
+            AuswahlRunden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
+            AkzentFarbe := Hex
+            NeuAufbauNoetig := true
+            SDlg.Destroy()
+        }
+
+        FertigKlick(*) {
+            BesitztNachtclub := (DDBusiness[1].Value = 1)
+            BesitztSpielhalle := (DDBusiness[2].Value = 1)
+            BesitztAgentur := (DDBusiness[3].Value = 1)
+            BesitztSchrotthandel := (DDBusiness[4].Value = 1)
+            BesitztKautionsbuero := (DDBusiness[5].Value = 1)
+            BesitztTextilfabrik := (DDBusiness[6].Value = 1)
+            BesitztWaschanlage := (DDBusiness[7].Value = 1)
+            BesitztHangar := (DDBusiness[8].Value = 1)
+
+            LagerGroesseAuswerten(DDLager[1].Value, &BesitztLager1, &MaxKistenLager1, &PreisProKisteLager1)
+            LagerGroesseAuswerten(DDLager[2].Value, &BesitztLager2, &MaxKistenLager2, &PreisProKisteLager2)
+            LagerGroesseAuswerten(DDLager[3].Value, &BesitztLager3, &MaxKistenLager3, &PreisProKisteLager3)
+            LagerGroesseAuswerten(DDLager[4].Value, &BesitztLager4, &MaxKistenLager4, &PreisProKisteLager4)
+            LagerGroesseAuswerten(DDLager[5].Value, &BesitztLager5, &MaxKistenLager5, &PreisProKisteLager5)
+            BesitztLagerhaus := BesitztLager1 || BesitztLager2 || BesitztLager3 || BesitztLager4 || BesitztLager5
+
+            BesitztNachtclubWarenlager := (DDWarenlager.Value = 1)
+            NachtclubAusruestungGekauft := (DDAusruestung.Value = 1)
+            if (BesitztNachtclubWarenlager && NachtclubWarenlagerStartZeit = "")
+                NachtclubWarenlagerStartZeit := A_Now
+
+            ZielRundenAnzahl := (IsNumber(EF.Value) ? Integer(EF.Value) : 0)
+
+            NeuAufbauNoetig := false
+            SDlg.Destroy()
+        }
+        BtnFertig.OnEvent("Click", FertigKlick)
+        SDlg.OnEvent("Close", FertigKlick)
+        SDlg.OnEvent("Escape", FertigKlick)
+
+        SDlg.Show("AutoSize xCenter yCenter")
+        WinWaitClose("ahk_id " . SDlg.Hwnd)
     }
 
-    CDlg.OnEvent("Close", (*) => CDlg.Destroy())
-    CDlg.OnEvent("Escape", (*) => CDlg.Destroy())
-
-    CDlg.Show("AutoSize xCenter yCenter")
-    WinWaitClose("ahk_id " . CDlg.Hwnd)
+    SpeichereKistenstand()
 }
 
 ; =========================================================================
@@ -1490,65 +1654,6 @@ ZeigeEingabe(Titel, Frage, Standardwert := "") {
 }
 
 ; =========================================================================
-; ⏻ AUTO-SHUTDOWN-ABFRAGE: Eigener Dialog mit LIVE-Umrechnung - während du
-; die Rundenzahl eingibst, wird direkt darunter die voraussichtliche
-; Gesamt-AFK-Zeit live mitgerechnet und angezeigt (0 oder leer = deaktiviert).
-; =========================================================================
-ZeigeRundenEingabe() {
-    global AkzentFarbe, RundenIntervallMinuten
-    Ergebnis := 0
-
-    RDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", T("autoshutdown_titel"))
-    RDlg.BackColor := "111111"
-    RDlg.MarginX := 28
-    RDlg.MarginY := 24
-
-    RDlg.SetFont("s14 Bold", "Consolas")
-    RDlg.Add("Text", "cFFFFFF w440", T("autoshutdown_titel"))
-    RDlg.Add("Progress", "w440 h4 c" . AkzentFarbe . " Background1A1A1A -Smooth y+8", 100)
-    RDlg.SetFont("s11 Norm", "Consolas")
-    RDlg.Add("Text", "cCCCCCC w440 r2 y+14", T("autoshutdown_frage"))
-
-    RDlg.SetFont("s13 Norm", "Consolas")
-    EF := RDlg.Add("Edit", "w440 h32 cFFFFFF Background2A2A2A -E0x200 y+10", "0")
-
-    RDlg.SetFont("s11 Bold", "Consolas")
-    ZeitAnzeige := RDlg.Add("Text", "c00FF88 w440 r2 y+8", T("autoshutdown_deaktiviert_live"))
-
-    RDlg.SetFont("s11 Bold", "Consolas")
-    BtnOK := RDlg.Add("Button", "w210 h42 Default y+16", T("btn_ok"))
-    BtnAbbrechen := RDlg.Add("Button", "x+20 w210 h42", T("btn_abbrechen"))
-
-    ; Live-Umrechnung bei jeder Änderung der Eingabe
-    Umrechnen(*) {
-        Runden := Integer(IsNumber(EF.Value) ? EF.Value : 0)
-        VorausStunden := Floor(Runden * RundenIntervallMinuten / 60)
-        VorausMinuten := Mod(Runden * RundenIntervallMinuten, 60)
-        ShutdownUhrzeit := FormatTime(DateAdd(A_Now, Runden * 48, "Minutes"), "HH:mm")
-        ZeitAnzeige.Value := (Runden > 0) ? TPn("autoshutdown_voraussichtlich", VorausStunden, VorausMinuten, ShutdownUhrzeit) : T("autoshutdown_deaktiviert_live")
-    }
-    EF.OnEvent("Change", Umrechnen)
-
-    OkKlick(*) {
-        Ergebnis := (IsNumber(EF.Value) ? Integer(EF.Value) : 0)
-        RDlg.Destroy()
-    }
-    AbbrechenKlick(*) {
-        Ergebnis := 0
-        RDlg.Destroy()
-    }
-
-    BtnOK.OnEvent("Click", OkKlick)
-    BtnAbbrechen.OnEvent("Click", AbbrechenKlick)
-    RDlg.OnEvent("Close", AbbrechenKlick)
-    RDlg.OnEvent("Escape", AbbrechenKlick)
-
-    RDlg.Show("AutoSize xCenter yCenter")
-    WinWaitClose("ahk_id " . RDlg.Hwnd)
-    return Ergebnis
-}
-
-; =========================================================================
 ; 📋 SPIELSTAND-EINGABE: EIN Fenster für alle Kistenstände + Nachtclub-
 ; Beliebtheit, statt vieler Einzelfenster nacheinander. Zeigt nur Zeilen für
 ; tatsächlich besessene Lager/Hangar/Nachtclub.
@@ -1666,127 +1771,6 @@ LagerGroesseAuswerten(AuswahlIndex, &Besitzt, &Max, &Preis) {
         Max := 111
         Preis := 20000
     }
-}
-
-; =========================================================================
-; 🏢 UNTERNEHMENS-SETUP: EIN einziges Fenster für alle 8 Unternehmen plus
-; die 5 Lagerhäuser, jeweils per Dropdown. Ersetzt die vielen einzelnen
-; Ja/Nein-Fenster von vorher. Die Kombi-Liste (KombinationsListe) wird
-; danach automatisch nur mit den passenden Schritten zusammengebaut.
-; =========================================================================
-UnternehmenSetup() {
-    global BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar
-    global BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, BesitztLagerhaus
-    global MaxKistenLager1, MaxKistenLager2, MaxKistenLager3, MaxKistenLager4, MaxKistenLager5
-    global PreisProKisteLager1, PreisProKisteLager2, PreisProKisteLager3, PreisProKisteLager4, PreisProKisteLager5
-    global BesitztNachtclubWarenlager, NachtclubAusruestungGekauft, NachtclubWarenlagerStartZeit
-    global Sprache, AkzentFarbe
-
-    JaNein := [T("ja"), T("nein")]
-    LagerOptionen := [T("lager_keins"), T("lager_klein"), T("lager_mittel"), T("lager_gross")]
-    BusinessNamen := (Sprache = "DE")
-        ? ["Nachtclub", "Spielhalle (Arcade)", "Agentur", "Schrotthandel", "Kautionsbüro", "Textilfabrik", "Hands-On-Waschanlage", "Hangar"]
-        : ["Nightclub", "Arcade", "Agency", "Salvage Yard", "Bail Office", "Textile Factory", "Hands-On Car Wash", "Hangar"]
-
-    UDlg := Gui("+AlwaysOnTop +ToolWindow -MaximizeBox -MinimizeBox", T("unternehmen_titel"))
-    UDlg.BackColor := "111111"
-    UDlg.MarginX := 28
-    UDlg.MarginY := 24
-
-    InhaltX := 28
-    InhaltBreite := 844
-    SpalteLinksX := InhaltX
-    SpalteRechtsX := InhaltX + 450
-    CY := 24
-
-    UDlg.SetFont("s14 Bold", "Consolas")
-    UDlg.Add("Text", "cFFFFFF x" . InhaltX . " y" . CY . " w" . InhaltBreite, T("unternehmen_titel"))
-    CY += 26
-    UDlg.Add("Progress", "x" . InhaltX . " y" . CY . " w" . InhaltBreite . " h4 c" . AkzentFarbe . " Background1A1A1A -Smooth", 100)
-    CY += 14
-    UDlg.SetFont("s10 Norm", "Consolas")
-    UDlg.Add("Text", "cCCCCCC x" . InhaltX . " y" . CY . " w" . InhaltBreite . " r1", T("unternehmen_subtitel"))
-    CY += 32
-
-    UDlg.SetFont("s11 Bold", "Consolas")
-    UDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteLinksX . " y" . CY . " w400", T("spalte_unternehmen"))
-    UDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteRechtsX . " y" . CY . " w400", T("spalte_lager"))
-    CY += 28
-
-    ReihenStartY := CY
-    ReihenHoehe := 36
-
-    DDBusiness := []
-    UDlg.SetFont("s10 Norm", "Consolas")
-    Loop 8 {
-        RY := ReihenStartY + (A_Index - 1) * ReihenHoehe
-        UDlg.Add("Text", "cDDDDDD x" . SpalteLinksX . " y" . (RY + 4) . " w170", BusinessNamen[A_Index] . ":")
-        DD := UDlg.Add("DropDownList", "x" . (SpalteLinksX + 175) . " y" . RY . " w195 Choose1", JaNein)
-        DDBusiness.Push(DD)
-    }
-
-    DDLager := []
-    Loop 5 {
-        RY := ReihenStartY + (A_Index - 1) * ReihenHoehe
-        UDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w100", T("kisten_lager") . " " . A_Index . ":")
-        DD := UDlg.Add("DropDownList", "x" . (SpalteRechtsX + 105) . " y" . RY . " w345 Choose1", LagerOptionen)
-        DDLager.Push(DD)
-    }
-
-    ; Zusätzlich: Nachtclub-Warenlager (Techniker-System, läuft in Echtzeit
-    ; unabhängig vom 48-Min-Zyklus) - eigene 2 Zeilen unter den Lagern.
-    RY := ReihenStartY + 5 * ReihenHoehe + 10
-    UDlg.SetFont("s10 Bold", "Consolas")
-    UDlg.Add("Text", "c" . AkzentFarbe . " x" . SpalteRechtsX . " y" . RY . " w400", T("warenlager_ueberschrift"))
-    RY += 26
-    UDlg.SetFont("s10 Norm", "Consolas")
-    UDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w340", T("techniker_frage"))
-    DDWarenlager := UDlg.Add("DropDownList", "x" . (SpalteRechtsX + 350) . " y" . RY . " w100 Choose1", JaNein)
-    RY += ReihenHoehe
-    UDlg.Add("Text", "cDDDDDD x" . SpalteRechtsX . " y" . (RY + 4) . " w340", T("ausruestung_frage"))
-    DDAusruestung := UDlg.Add("DropDownList", "x" . (SpalteRechtsX + 350) . " y" . RY . " w100 Choose1", JaNein)
-
-    ; Button unter der längeren Spalte (8 Unternehmen sind mehr als 5 Lager)
-    ButtonY := ReihenStartY + 8 * ReihenHoehe + 8
-    UDlg.SetFont("s11 Bold", "Consolas")
-    BtnOK := UDlg.Add("Button", "x" . InhaltX . " y" . ButtonY . " w260 h44 Default", T("btn_uebernehmen"))
-
-    OkKlick(*) {
-        ; FIX: .Value liefert den 1-basierten INDEX (1=Ja/Yes, 2=Nein/No) -
-        ; sprachunabhängig, im Gegensatz zum Text-Vergleich.
-        BesitztNachtclub := (DDBusiness[1].Value = 1)
-        BesitztSpielhalle := (DDBusiness[2].Value = 1)
-        BesitztAgentur := (DDBusiness[3].Value = 1)
-        BesitztSchrotthandel := (DDBusiness[4].Value = 1)
-        BesitztKautionsbuero := (DDBusiness[5].Value = 1)
-        BesitztTextilfabrik := (DDBusiness[6].Value = 1)
-        BesitztWaschanlage := (DDBusiness[7].Value = 1)
-        BesitztHangar := (DDBusiness[8].Value = 1)
-
-        LagerGroesseAuswerten(DDLager[1].Value, &BesitztLager1, &MaxKistenLager1, &PreisProKisteLager1)
-        LagerGroesseAuswerten(DDLager[2].Value, &BesitztLager2, &MaxKistenLager2, &PreisProKisteLager2)
-        LagerGroesseAuswerten(DDLager[3].Value, &BesitztLager3, &MaxKistenLager3, &PreisProKisteLager3)
-        LagerGroesseAuswerten(DDLager[4].Value, &BesitztLager4, &MaxKistenLager4, &PreisProKisteLager4)
-        LagerGroesseAuswerten(DDLager[5].Value, &BesitztLager5, &MaxKistenLager5, &PreisProKisteLager5)
-        BesitztLagerhaus := BesitztLager1 || BesitztLager2 || BesitztLager3 || BesitztLager4 || BesitztLager5
-
-        BesitztNachtclubWarenlager := (DDWarenlager.Value = 1)
-        NachtclubAusruestungGekauft := (DDAusruestung.Value = 1)
-        if (BesitztNachtclubWarenlager && NachtclubWarenlagerStartZeit = "")
-            NachtclubWarenlagerStartZeit := A_Now
-
-        UDlg.Destroy()
-    }
-    BtnOK.OnEvent("Click", OkKlick)
-    UDlg.OnEvent("Close", (*) => UDlg.Destroy())
-    UDlg.OnEvent("Escape", (*) => UDlg.Destroy())
-
-    ; FIX: Das Dashboard ist klickdurchlässig (WS_EX_TRANSPARENT), dieser
-    ; Dialog hier ist aber ein normales, interaktives Fenster.
-    UDlg.Show("AutoSize xCenter yCenter")
-    WinWaitClose("ahk_id " . UDlg.Hwnd)
-
-    SpeichereKistenstand()
 }
 
 ; =========================================================================
@@ -1921,18 +1905,11 @@ SpielstandSync() {
 StartAutomation() {
     global InfoGui, StartZeit, AutomationAktiv, KistenLager1, KistenLager2, KistenLager3, KistenLager4, KistenLager5, KistenHangar, NachtclubBeliebtheit, ZielZeit, BesitztNachtclub, BesitztSpielhalle, BesitztAgentur, BesitztSchrotthandel, BesitztKautionsbuero, BesitztTextilfabrik, BesitztWaschanlage, BesitztHangar, BesitztLagerhaus, BesitztLager1, BesitztLager2, BesitztLager3, BesitztLager4, BesitztLager5, KistenDateiPfad, ZielRundenAnzahl, WarenbestandBekannt, RundenIntervallMinuten
 
-    ; FIX: Unternehmens-Setup nur noch abfragen, wenn nötig - beim allerersten
-    ; Start überhaupt (keine gespeicherte Datei), oder wenn du auf die kurze
-    ; Nachfrage "gleich geblieben?" mit Nein antwortest. Sonst wird einfach
-    ; der zuletzt gespeicherte Unternehmensbesitz weiterverwendet.
+    ; FIX: Unternehmen/Lager/Auto-Shutdown werden jetzt bereits EINMALIG beim
+    ; Skriptstart im Komplett-Setup-Fenster festgelegt (siehe ZeigeKomplett-
+    ; Setup() ganz am Anfang) - hier beim ersten Shift+P nur noch der aktuelle
+    ; Spielstand (Kisten/Beliebtheit) synchronisieren und bestätigen lassen.
     if (StartZeit = 0) {
-        if FileExist(KistenDateiPfad) {
-            GleichGeblieben := ZeigeFrage("Unternehmen-Check", "Sind deine Unternehmen noch dieselben wie beim letzten Mal?")
-            if !GleichGeblieben
-                UnternehmenSetup()
-        } else {
-            UnternehmenSetup()
-        }
         SpielstandSync()
 
         ; FIX: Nach der Eingabe nochmal gesondert bestätigen lassen (mit
@@ -1973,11 +1950,6 @@ StartAutomation() {
         ; die Wartezeit abwarten (z.B. weil gerade erst frisch eingekauft
         ; wurde und noch nichts abzuholen ist).
         StartWahl := ZeigeFrage(T("startmodus_titel"), T("startmodus_frage"), 4)
-
-        ; FIX: Optionales automatisches Herunterfahren nach X Runden - mit
-        ; Live-Umrechnung der voraussichtlichen AFK-Zeit direkt im Fenster,
-        ; während die Rundenzahl eingegeben wird.
-        ZielRundenAnzahl := ZeigeRundenEingabe()
 
         if !StartWahl {
             StartZeit := A_TickCount
